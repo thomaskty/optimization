@@ -1,0 +1,34 @@
+{
+  "status": "optimal",
+  "production_plan": [
+    {
+      "product": "Chair",
+      "quantity": 83.333333333,
+      "profit_per_unit": 25.0,
+      "total_profit": 2083.333333325
+    },
+    {
+      "product": "Table",
+      "quantity": 33.333333333,
+      "profit_per_unit": 60.0,
+      "total_profit": 1999.99999998
+    },
+    {
+      "product": "Desk",
+      "quantity": 20.0,
+      "profit_per_unit": 90.0,
+      "total_profit": 1800.0
+    },
+    {
+      "product": "Cabinet",
+      "quantity": 65.277777778,
+      "profit_per_unit": 120.0,
+      "total_profit": 7833.33333336
+    }
+  ],
+  "summary": {
+    "total_quantity_produced": 201.944444444,
+    "total_profit": 13716.666666665,
+    "objective_value": -13716.666667
+  }
+}

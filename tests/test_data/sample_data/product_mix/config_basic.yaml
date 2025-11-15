@@ -1,0 +1,42 @@
+# Product Mix Optimization - Basic Configuration
+# No optional constraints, just maximize profit with resource limits
+
+model_name: "product_mix_basic"
+model_id: "PMX_BASIC_001"
+model_type: "milp"
+playbook_type: "product_mix"
+
+# Dataset paths
+datasets:
+  products: "tests/test_data/sample_data/product_mix/products.csv"
+  resources: "tests/test_data/sample_data/product_mix/resources.csv"
+  resource_usage: "tests/test_data/sample_data/product_mix/resource_usage.csv"
+
+# Objective: Maximize profit (default)
+objective:
+  function: "maximize_profit"
+  description: "Maximize total profit from production"
+
+# Optimizer settings
+optimizer_params:
+  solver: "APOPT"
+  remote: false
+  time_limit: 300
+  max_iter: 1000
+  mip_gap: 0.01
+
+# NO OPTIONAL CONSTRAINTS
+# Only resource limits apply (hardcoded in playbook)
+constraints: []
+
+# Output settings
+output:
+  save_results: true
+  formats: [ "json", "csv" ]
+  directory: 'tests/test_outputs'
+
+base_path: "."
+
+metadata:
+  scenario: "Basic product mix with resource constraints only"
+  notes: "No demand limits or production requirements"

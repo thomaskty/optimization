@@ -1,6 +1,6 @@
 """
 Base Playbook for Optimization Workflows
-Abstract interface for creating reusable optimization optimization_playbooks.
+Abstract interface for creating reusable optimization playbooks.
 """
 
 from abc import ABC, abstractmethod
@@ -12,7 +12,7 @@ from app.models.optimizers.base_optimizer import BaseOptimizer
 
 
 class BasePlaybook(ABC):
-    """Abstract base class for optimization optimization_playbooks."""
+    """Abstract base class for optimization playbooks."""
 
     def __init__(self, config: Dict[str, Any], optimizer: Optional[BaseOptimizer] = None):
         """
@@ -25,6 +25,11 @@ class BasePlaybook(ABC):
         self.config = config
         self.optimizer = optimizer
         self.result: Optional[Dict[str, Any]] = None
+
+    @abstractmethod
+    def load_data(self) -> Dict[str, Any]:
+        """Load input data based on config. Each playbook implements its own data loading."""
+        pass
 
     @abstractmethod
     def validate_input(self, input_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
@@ -51,11 +56,13 @@ class BasePlaybook(ABC):
         """Generate final output from solution."""
         pass
 
-    def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self) -> Dict[str, Any]:
         """Execute the complete playbook workflow."""
         start_time = time.time()
-
         try:
+            # Load data (playbook-specific)
+            input_data = self.load_data()
+
             # Validate input
             is_valid, errors = self.validate_input(input_data)
             if not is_valid:

@@ -1,0 +1,199 @@
+# Product Mix Optimization - Advanced Configuration
+# Comprehensive example showing all features and constraint types
+
+# ============================================================
+# MODEL METADATA
+# ============================================================
+model_name: "furniture_production_optimization"
+model_id: "PMX_ADV_2025_001"
+submission_id: "SUB_PMX_ADV_001"
+model_type: "milp"
+playbook_type: "product_mix"
+
+# ============================================================
+# DATASET PATHS
+# ============================================================
+datasets:
+  products: "tests/test_data/sample_data/product_mix/products.csv"
+  resources: "tests/test_data/sample_data/product_mix/resources.csv"
+  resource_usage: "tests/test_data/sample_data/product_mix/resource_usage.csv"
+
+# ============================================================
+# OBJECTIVE FUNCTION
+# ============================================================
+# Available functions:
+#   - maximize_profit: Maximize total profit (profit_per_unit * quantity)
+#   - minimize_cost: Minimize total cost (cost_per_unit * quantity)
+#   - maximize_revenue: Maximize total revenue (price_per_unit * quantity)
+
+objective:
+  function: "maximize_profit"
+  description: "Maximize total profit while respecting all constraints"
+
+# ============================================================
+# OPTIMIZER PARAMETERS
+# ============================================================
+optimizer_params:
+  solver: "APOPT"              # APOPT (1), BPOPT (2), IPOPT (3)
+  remote: false                # Use local solver
+  time_limit: 600              # 10 minutes maximum solve time
+  max_iter: 2000               # Maximum iterations
+  mip_gap: 0.005              # 0.5% optimality gap tolerance
+
+# ============================================================
+# OPTIONAL CONSTRAINTS (User-Defined Business Rules)
+# ============================================================
+# These constraints are OPTIONAL and configured by the user.
+# The playbook will always enforce resource capacity limits (required).
+#
+# Available constraint types:
+#   1. max_production: Maximum quantity for a product (demand limit)
+#   2. min_production: Minimum quantity for a product (contract/quota)
+#   3. production_ratio: Fixed ratio between two products
+#   4. total_production_limit: Maximum total across all products
+#   5. minimum_total_production: Minimum total across all products
+
+constraints:
+  # ------------------------------
+  # Market Demand Limits
+  # ------------------------------
+  # Maximum we can sell in the market
+
+  - type: "max_production"
+    product: "Chair"
+    max_quantity: 250
+    description: "Maximum market demand for chairs"
+
+  - type: "max_production"
+    product: "Table"
+    max_quantity: 120
+    description: "Maximum market demand for tables"
+
+  - type: "max_production"
+    product: "Desk"
+    max_quantity: 90
+    description: "Maximum market demand for desks"
+
+  - type: "max_production"
+    product: "Cabinet"
+    max_quantity: 70
+    description: "Maximum market demand for cabinets"
+
+  # ------------------------------
+  # Contract Requirements
+  # ------------------------------
+  # Minimum production we must fulfill
+
+  - type: "min_production"
+    product: "Chair"
+    min_quantity: 80
+    description: "Minimum contract requirement for chairs"
+
+  - type: "min_production"
+    product: "Table"
+    min_quantity: 30
+    description: "Minimum contract requirement for tables"
+
+  - type: "min_production"
+    product: "Desk"
+    min_quantity: 20
+    description: "Minimum contract requirement for desks"
+
+  # ------------------------------
+  # Production Ratios (Business Rules)
+  # ------------------------------
+  # Relationships between products
+
+  - type: "production_ratio"
+    product_a: "Table"
+    product_b: "Chair"
+    ratio: 0.4
+    description: "For every 10 chairs, produce 4 tables (Table = 0.4 * Chair)"
+
+  - type: "production_ratio"
+    product_a: "Desk"
+    product_b: "Table"
+    ratio: 0.6
+    description: "For every 10 tables, produce 6 desks (Desk = 0.6 * Table)"
+
+  # ------------------------------
+  # Overall Capacity Constraints
+  # ------------------------------
+
+  - type: "total_production_limit"
+    max_total_quantity: 400
+    description: "Maximum warehouse storage capacity (all products combined)"
+
+  - type: "minimum_total_production"
+    min_total_quantity: 150
+    description: "Minimum factory utilization requirement"
+
+# ============================================================
+# OUTPUT SETTINGS
+# ============================================================
+output:
+  save_results: true
+  formats: ["json", "csv"]
+  directory: 'tests/test_outputs'  # Will create subdirectory with model_id
+
+# ============================================================
+# BASE PATH
+# ============================================================
+base_path: "."
+
+# ============================================================
+# ADDITIONAL METADATA
+# ============================================================
+metadata:
+  company: "ABC Furniture Manufacturing"
+  facility: "Plant A - Main Production"
+  planning_period: "Q1 2025"
+  scenario: "Advanced optimization with full constraint set"
+  analyst: "Production Planning Team"
+  created_date: "2025-01-15"
+  notes: |
+    This configuration demonstrates all available features:
+    - Market demand limits for each product
+    - Contract minimums for key products
+    - Production ratios to maintain product mix
+    - Overall capacity and utilization constraints
+    
+    Expected outcome:
+    - Maximize profit within resource constraints
+    - Meet all contract requirements
+    - Respect market demand limits
+    - Maintain production ratios
+    - Stay within warehouse capacity
+
+  business_context:
+    market_conditions: "High demand for premium furniture"
+    resource_constraints: "Limited machine hours and skilled labor"
+    strategic_goals: "Maximize profit while maintaining product diversity"
+    risk_factors: "Supply chain delays for wood, labor shortage"
+
+# ============================================================
+# NOTES ON CONSTRAINT USAGE
+# ============================================================
+#
+# HOW CONSTRAINTS WORK:
+#
+# 1. REQUIRED (always enforced by playbook):
+#    - Resource capacity limits (can't use more than available)
+#    - Non-negativity (can't produce negative quantities)
+#
+# 2. OPTIONAL (configured here):
+#    - Market limits, contracts, ratios, capacity
+#    - User can add/remove/modify these
+#
+# CONSTRAINT INTERACTION:
+# - All constraints must be satisfied simultaneously
+# - If constraints are too restrictive, solver may find no solution
+# - Use different config files to test various scenarios
+#
+# EXAMPLE SCENARIOS:
+# - Remove demand limits → See theoretical maximum profit
+# - Remove minimums → See cost-optimal production
+# - Remove ratios → See unconstrained product mix
+# - Tighten capacity → See impact of warehouse expansion
+#
+# ============================================================

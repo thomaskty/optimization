@@ -1,44 +1,20 @@
 """
 Optimization Processor
-Main entry point for running optimization optimization_playbooks from YAML configuration files.
+Main entry point for running optimization playbooks from YAML configuration files.
 """
 
 import yaml
-import pandas as pd
 from pathlib import Path
 from typing import Dict, Any
-import json
 
-from app.optimization_playbooks.portfolio_optimization_playbook import PortfolioOptimizationPlaybook
+from app.optimization_playbooks.tax_efficient_portfolio_transition import TaxEfficientPortfolioTransition
+from app.optimization_playbooks.product_mix_playbook import ProductMixPlaybook
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
     """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
-
-
-def load_data_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Load input data based on configuration."""
-    input_data = {}
-
-    # New format: datasets section
-    if 'datasets' in config:
-        datasets = config['datasets']
-        if 'holdings' in datasets:
-            input_data['holdings'] = pd.read_csv(datasets['holdings'])
-        if 'acquisitions' in datasets:
-            input_data['purchase_history'] = pd.read_csv(datasets['acquisitions'])
-
-    # Legacy format: input_data_path + individual files
-    elif 'input_data_path' in config:
-        data_path = Path(config.get('input_data_path', ''))
-        if 'holdings_file' in config:
-            input_data['holdings'] = pd.read_csv(data_path / config['holdings_file'])
-        if 'purchase_history_file' in config:
-            input_data['purchase_history'] = pd.read_csv(data_path / config['purchase_history_file'])
-
-    return input_data
 
 
 def get_output_directory(config: Dict[str, Any]) -> str:
@@ -80,7 +56,7 @@ def get_output_directory(config: Dict[str, Any]) -> str:
 
 
 def optimization_runner(config_path: str) -> Dict[str, Any]:
-    """Main runner for optimization optimization_playbooks."""
+    """Main runner for optimization playbooks."""
     # Load configuration from YAML
     config = load_config(config_path)
 
@@ -93,7 +69,7 @@ def optimization_runner(config_path: str) -> Dict[str, Any]:
         'model_id': config.get('model_id'),
         'submission_id': config.get('submission_id'),
         'model_type': config.get('model_type', config.get('optimizer_type', 'milp')),
-        'playbook_type': config.get('playbook_type', 'portfolio_optimization'),
+        'playbook_type': config.get('playbook_type', 'tax_efficient_portfolio_transition'),
         'datasets': config.get('datasets', {}),
         'columns': config.get('columns', {}),
         'constraints': config.get('constraints', []),
@@ -105,33 +81,23 @@ def optimization_runner(config_path: str) -> Dict[str, Any]:
             'directory': output_dir,
             'formats': config.get('output', {}).get('formats', ['json', 'csv'])
         },
-        'metadata': config.get('metadata', {})
+        'metadata': config.get('metadata', {}),
+        'input_data_path': config.get('input_data_path'),
+        'holdings_file': config.get('holdings_file'),
+        'purchase_history_file': config.get('purchase_history_file')
     }
+    # Create playbook based on type
+    playbook_type = config.get('playbook_type', 'tax_efficient_portfolio_transition')
 
-    # Load input data
-    input_data = load_data_from_config(config)
-
-    # Create and execute playbook
-    playbook_type = config.get('playbook_type', 'portfolio_optimization')
-
-    if playbook_type == 'portfolio_optimization':
-        playbook = PortfolioOptimizationPlaybook(config=playbook_config)
+    if playbook_type == 'tax_efficient_portfolio_transition':
+        playbook = TaxEfficientPortfolioTransition(config=playbook_config)
+    elif playbook_type == 'product_mix':
+        playbook = ProductMixPlaybook(config=playbook_config)
+    # Add more playbooks here as needed
     else:
         raise ValueError(f"Unknown playbook type: {playbook_type}")
 
-    # Execute playbook
-    result = playbook.execute(input_data)
-
-    # Print result as JSON
-    if result.get('status') == 'success' and 'output' in result:
-        output = result['output']
-        optimization_result = {
-            'status': output.get('status', result['status']),
-            'sell_decisions': output.get('sell_decisions', []),
-            'summary': output.get('optimization_summary', {})
-        }
-        print("\n" + json.dumps(optimization_result, indent=2, default=str))
-    else:
-        print("\n" + json.dumps(result, indent=2, default=str))
+    # Execute playbook (data loading happens inside execute())
+    result = playbook.execute()
 
     return result

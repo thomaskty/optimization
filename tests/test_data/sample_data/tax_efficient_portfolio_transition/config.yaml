@@ -2,16 +2,16 @@
 # Tax-efficient stock liquidation with full configuration
 
 # Model metadata
-model_name: "stock_liquidation_tax_optimization"
-model_id: "12345"
+model_name: "TE_12345"
+model_id: "TE12345"
 submission_id: "SUB_12345"
 model_type: "milp"
-playbook_type: "portfolio_optimization"
+playbook_type: "tax_efficient_portfolio_transition"
 
 # Dataset paths (new format)
 datasets:
-  holdings: "tests/test_data/sample_data/portfolio_optimization/holdings.csv"
-  acquisitions: "tests/test_data/sample_data/portfolio_optimization/purchase_history.csv"
+  holdings: "tests/test_data/sample_data/tax_efficient_portfolio_transition/holdings.csv"
+  acquisitions: "tests/test_data/sample_data/tax_efficient_portfolio_transition/purchase_history.csv"
 
 # Column mappings (optional - maps config names to CSV column names)
 columns:
@@ -58,7 +58,7 @@ tax_parameters:
 # Output settings
 output:
   save_results: true
-  formats: ["json", "csv"]
+  formats: [ "json", "csv"]
   directory: 'tests/test_outputs'  # null = auto-generate as base_path/outputs/model_name
 
 # Base path for relative paths

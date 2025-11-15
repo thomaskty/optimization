@@ -1,6 +1,6 @@
 """
-Portfolio Optimization Playbook
-Tax-efficient stock liquidation optimizer with short-term/long-term capital gains.
+Tax-Efficient Portfolio Transition Playbook
+Optimize stock liquidation with short-term/long-term capital gains considerations.
 """
 
 from typing import Dict, List, Optional, Any, Tuple
@@ -12,9 +12,9 @@ from app.optimization_playbooks.base_playbook import BasePlaybook
 from app.models.optimizers.milp import MILPOptimizer
 
 
-class PortfolioOptimizationPlaybook(BasePlaybook):
+class TaxEfficientPortfolioTransition(BasePlaybook):
     """
-    Tax-efficient stock liquidation playbook.
+    Tax-Efficient Portfolio Transition Playbook.
 
     Optimizes stock liquidation considering:
     - Short-term vs long-term capital gains (different tax rates)
@@ -38,6 +38,18 @@ class PortfolioOptimizationPlaybook(BasePlaybook):
         # Data structures
         self.lots: Optional[pd.DataFrame] = None
         self.lot_variables: Dict[int, Any] = {}
+
+    def load_data(self) -> Dict[str, Any]:
+        """Load tax-efficient portfolio transition data from config."""
+        input_data = {}
+        datasets = self.config.get('datasets', {})
+
+        if 'holdings' in datasets:
+            input_data['holdings'] = pd.read_csv(datasets['holdings'])
+        if 'acquisitions' in datasets:
+            input_data['purchase_history'] = pd.read_csv(datasets['acquisitions'])
+
+        return input_data
 
     def validate_input(self, input_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate input data."""

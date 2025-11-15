@@ -1,0 +1,17 @@
+product_name,resource_name,usage_per_unit
+Chair,Labor_Hours,2
+Chair,Wood_Units,3
+Chair,Machine_Hours,1
+Chair,Paint_Units,1
+Table,Labor_Hours,4
+Table,Wood_Units,8
+Table,Machine_Hours,2
+Table,Paint_Units,2
+Desk,Labor_Hours,6
+Desk,Wood_Units,10
+Desk,Machine_Hours,3
+Desk,Paint_Units,2
+Cabinet,Labor_Hours,8
+Cabinet,Wood_Units,12
+Cabinet,Machine_Hours,4
+Cabinet,Paint_Units,3

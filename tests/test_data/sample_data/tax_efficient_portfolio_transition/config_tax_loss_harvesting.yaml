@@ -6,12 +6,12 @@ model_name: "tax_loss_harvesting"
 model_id: "TLH_2025_Q4"
 submission_id: "SUB_TLH_001"
 model_type: "milp"
-playbook_type: "portfolio_optimization"
+playbook_type: "tax_efficient_portfolio_transition"
 
 # Dataset paths
 datasets:
-  holdings: "tests/test_data/sample_data/portfolio_optimization/holdings.csv"
-  acquisitions: "tests/test_data/sample_data/portfolio_optimization/purchase_history.csv"
+  holdings: "tests/test_data/sample_data/tax_efficient_portfolio_transition/holdings.csv"
+  acquisitions: "tests/test_data/sample_data/tax_efficient_portfolio_transition/purchase_history.csv"
 
 # Objective: MAXIMIZE capital losses for tax harvesting
 objective:

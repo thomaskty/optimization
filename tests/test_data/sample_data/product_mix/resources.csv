@@ -1,0 +1,5 @@
+resource_name,available_capacity,cost_per_unit
+Labor_Hours,2000,20
+Wood_Units,1500,10
+Machine_Hours,800,15
+Paint_Units,500,5
