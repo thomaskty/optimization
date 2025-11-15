@@ -1,0 +1,85 @@
+{
+  "status": "optimal",
+  "sell_decisions": [
+    {
+      "ticker": "MSFT",
+      "acquisition_date": "2022-11-01",
+      "quantity": 75,
+      "quantity_to_sell": 75.0,
+      "sell": true,
+      "sell_fraction": 1.0,
+      "purchase_price": 200.0,
+      "current_price": 250.0,
+      "is_long_term": true,
+      "holding_period_days": 806,
+      "capital_gain": 3750.0
+    },
+    {
+      "ticker": "AAPL",
+      "acquisition_date": "2023-01-15",
+      "quantity": 50,
+      "quantity_to_sell": 50.0,
+      "sell": true,
+      "sell_fraction": 1.0,
+      "purchase_price": 150.0,
+      "current_price": 180.0,
+      "is_long_term": true,
+      "holding_period_days": 731,
+      "capital_gain": 1500.0
+    },
+    {
+      "ticker": "GOOG",
+      "acquisition_date": "2023-03-01",
+      "quantity": 30,
+      "quantity_to_sell": 30.0,
+      "sell": true,
+      "sell_fraction": 1.0,
+      "purchase_price": 120.0,
+      "current_price": 150.0,
+      "is_long_term": true,
+      "holding_period_days": 686,
+      "capital_gain": 900.0
+    },
+    {
+      "ticker": "AAPL",
+      "acquisition_date": "2024-05-20",
+      "quantity": 50,
+      "quantity_to_sell": 50.0,
+      "sell": true,
+      "sell_fraction": 1.0,
+      "purchase_price": 170.0,
+      "current_price": 180.0,
+      "is_long_term": false,
+      "holding_period_days": 240,
+      "capital_gain": 500.0
+    },
+    {
+      "ticker": "GOOG",
+      "acquisition_date": "2025-01-10",
+      "quantity": 20,
+      "quantity_to_sell": 20.0,
+      "sell": true,
+      "sell_fraction": 1.0,
+      "purchase_price": 145.0,
+      "current_price": 150.0,
+      "is_long_term": false,
+      "holding_period_days": 5,
+      "capital_gain": 100.0
+    }
+  ],
+  "summary": {
+    "total_short_term_gain": 600.0,
+    "total_short_term_loss": 0.0,
+    "total_long_term_gain": 6150.0,
+    "total_long_term_loss": 0.0,
+    "net_short_term_gain": 600.0,
+    "net_long_term_gain": 6150.0,
+    "total_net_capital_gain": 6750.0,
+    "tax_offset": 0.0,
+    "taxable_capital_gain": 6750.0,
+    "carryforward_loss": 0.0,
+    "estimated_tax": 1452.0,
+    "short_term_tax_rate": 0.37,
+    "long_term_tax_rate": 0.2
+  }
+}

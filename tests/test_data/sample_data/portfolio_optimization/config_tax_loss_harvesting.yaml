@@ -1,0 +1,50 @@
+# Tax Loss Harvesting Strategy
+# Maximize capital losses to offset other income
+# Use case: End of year tax planning to harvest losses
+
+model_name: "tax_loss_harvesting"
+model_id: "TLH_2025_Q4"
+submission_id: "SUB_TLH_001"
+model_type: "milp"
+playbook_type: "portfolio_optimization"
+
+# Dataset paths
+datasets:
+  holdings: "tests/test_data/sample_data/portfolio_optimization/holdings.csv"
+  acquisitions: "tests/test_data/sample_data/portfolio_optimization/purchase_history.csv"
+
+# Objective: MAXIMIZE capital losses for tax harvesting
+objective:
+  function: "maximize_capital_losses"
+  description: "Maximize capital losses for year-end tax planning"
+
+# Fast solver settings for quick results
+optimizer_params:
+  solver: "APOPT"
+  remote: false
+  time_limit: 300           # 5 minutes max
+  max_iter: 500
+  mip_gap: 0.05            # 5% gap acceptable for faster solve
+
+# Tax parameters - High income bracket
+tax_parameters:
+  short_term_cg_rate: 0.37                    # Top federal bracket
+  long_term_cg_rate: 0.20                     # Top LT rate
+  ordinary_income_offset_limit: 3000          # IRS limit for offsetting ordinary income
+  long_term_threshold_days: 365
+  valuation_date: "2024-12-31"               # End of year valuation
+
+# Output settings
+output:
+  save_results: true
+  formats: ["json", "csv"]
+  directory: 'tests/test_outputs'
+
+base_path: "."
+
+metadata:
+  client_name: "High Income Taxpayer"
+  portfolio_type: "Taxable Account"
+  optimization_date: "2024-12-31"
+  strategy: "Tax Loss Harvesting"
+  notes: "Maximize losses before year-end to offset gains and reduce taxable income"

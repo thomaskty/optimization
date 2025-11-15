@@ -1,0 +1,73 @@
+# Advanced Portfolio Optimization Configuration
+# Tax-efficient stock liquidation with full configuration
+
+# Model metadata
+model_name: "stock_liquidation_tax_optimization"
+model_id: "12345"
+submission_id: "SUB_12345"
+model_type: "milp"
+playbook_type: "portfolio_optimization"
+
+# Dataset paths (new format)
+datasets:
+  holdings: "tests/test_data/sample_data/portfolio_optimization/holdings.csv"
+  acquisitions: "tests/test_data/sample_data/portfolio_optimization/purchase_history.csv"
+
+# Column mappings (optional - maps config names to CSV column names)
+columns:
+  ticker: "ticker"
+  shares_held: "shares_held"
+  current_price: "current_price"
+  total_value: "total_value"
+  acquisition_date: "acquisition_date"
+  purchase_price: "purchase_price"
+  shares_purchased: "shares_purchased"
+
+# Objective function configuration
+# Available functions:
+#   - minimize_tax_liability: Minimize tax (ST gains * ST rate + LT gains * LT rate)
+#   - maximize_capital_losses: Maximize capital losses for tax harvesting
+#   - minimize_short_term_gains: Minimize short-term capital gains
+#   - maximize_long_term_gains: Maximize long-term capital gains
+#   - minimize_total_gains: Minimize total capital gains
+#   - maximize_total_gains: Maximize total capital gains
+#   - weighted_tax_optimization: Custom weighted combination
+objective:
+  function: "minimize_tax_liability"
+  description: "Minimize total capital gains tax liability"
+  # weights:                     # Only for weighted_tax_optimization
+  #   short_term: 0.4
+  #   long_term: 0.25
+
+# Optimizer parameters (passed to MILPOptimizer constructor)
+optimizer_params:
+  solver: "APOPT"           # Solver backend: APOPT, BPOPT, IPOPT
+  remote: false             # Use remote solver
+  time_limit: 600           # Maximum solve time (seconds)
+  max_iter: 1000            # Maximum iterations
+  mip_gap: 0.01            # MIP gap tolerance (0.01 = 1%)
+
+# Tax parameters
+tax_parameters:
+  short_term_cg_rate: 0.37                    # Short-term capital gains tax rate
+  long_term_cg_rate: 0.20                     # Long-term capital gains tax rate
+  ordinary_income_offset_limit: 3000          # Max loss offset for ordinary income
+  long_term_threshold_days: 365               # Days threshold for long-term classification
+  valuation_date: "2025-01-15"               # Date for calculating holding periods
+
+# Output settings
+output:
+  save_results: true
+  formats: ["json", "csv"]
+  directory: 'tests/test_outputs'  # null = auto-generate as base_path/outputs/model_name
+
+# Base path for relative paths
+base_path: "."
+
+# Additional metadata (informational only)
+metadata:
+  client_name: "Sample Client"
+  portfolio_type: "Individual Taxable Account"
+  optimization_date: "2025-01-15"
+  analyst: "Portfolio Optimization Team"
+  notes: "Tax-loss harvesting with ST/LT consideration"

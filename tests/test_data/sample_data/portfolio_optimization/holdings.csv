@@ -1,0 +1,4 @@
+ticker,shares_held,current_price,total_value
+AAPL,100,180.00,18000.00
+GOOG,50,150.00,7500.00
+MSFT,75,250.00,18750.00

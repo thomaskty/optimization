@@ -1,0 +1,6 @@
+ticker,acquisition_date,purchase_price,shares_purchased
+AAPL,'2023-01-15',150.00,50
+AAPL,'2024-05-20',170.00,50
+GOOG,'2023-03-01',120.00,30
+GOOG,'2025-01-10',145.00,20
+MSFT,'2022-11-01',200.00,75

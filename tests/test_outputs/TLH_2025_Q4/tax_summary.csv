@@ -1,0 +1,2 @@
+total_short_term_gain,total_short_term_loss,total_long_term_gain,total_long_term_loss,net_short_term_gain,net_long_term_gain,total_net_capital_gain,tax_offset,taxable_capital_gain,carryforward_loss,estimated_tax,short_term_tax_rate,long_term_tax_rate
+600.0,0.0,6150.0,0.0,600.0,6150.0,6750.0,0.0,6750.0,0.0,1452.0,0.37,0.2
