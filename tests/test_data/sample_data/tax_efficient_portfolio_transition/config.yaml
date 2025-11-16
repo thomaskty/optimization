@@ -1,73 +1,67 @@
-# Advanced Portfolio Optimization Configuration
-# Tax-efficient stock liquidation with full configuration
+# Simple Tax-Efficient Portfolio Liquidation Configuration
 
-# Model metadata
-model_name: "TE_12345"
-model_id: "TE12345"
-submission_id: "SUB_12345"
+model_name: "TE_SIMPLE"
+model_id: "TE_001"
+submission_id: "SUB_001"
 model_type: "milp"
 playbook_type: "tax_efficient_portfolio_transition"
 
-# Dataset paths (new format)
+# Data files
 datasets:
   holdings: "tests/test_data/sample_data/tax_efficient_portfolio_transition/holdings.csv"
   acquisitions: "tests/test_data/sample_data/tax_efficient_portfolio_transition/purchase_history.csv"
 
-# Column mappings (optional - maps config names to CSV column names)
-columns:
-  ticker: "ticker"
-  shares_held: "shares_held"
-  current_price: "current_price"
-  total_value: "total_value"
-  acquisition_date: "acquisition_date"
-  purchase_price: "purchase_price"
-  shares_purchased: "shares_purchased"
-
-# Objective function configuration
-# Available functions:
-#   - minimize_tax_liability: Minimize tax (ST gains * ST rate + LT gains * LT rate)
-#   - maximize_capital_losses: Maximize capital losses for tax harvesting
-#   - minimize_short_term_gains: Minimize short-term capital gains
-#   - maximize_long_term_gains: Maximize long-term capital gains
-#   - minimize_total_gains: Minimize total capital gains
-#   - maximize_total_gains: Maximize total capital gains
-#   - weighted_tax_optimization: Custom weighted combination
+# What to optimize
 objective:
-  function: "minimize_tax_liability"
-  description: "Minimize total capital gains tax liability"
-  # weights:                     # Only for weighted_tax_optimization
-  #   short_term: 0.4
-  #   long_term: 0.25
+  function: "minimize_tax_liability"  # Or: maximize_capital_losses, minimize_short_term_gains, etc.
 
-# Optimizer parameters (passed to MILPOptimizer constructor)
+# Solver settings
 optimizer_params:
-  solver: "APOPT"           # Solver backend: APOPT, BPOPT, IPOPT
-  remote: false             # Use remote solver
-  time_limit: 600           # Maximum solve time (seconds)
-  max_iter: 1000            # Maximum iterations
-  mip_gap: 0.01            # MIP gap tolerance (0.01 = 1%)
+  solver: "APOPT"
+  remote: false
+  time_limit: 600
+  max_iter: 1000
+  mip_gap: 0.01
 
-# Tax parameters
+# Tax rates and rules
 tax_parameters:
-  short_term_cg_rate: 0.37                    # Short-term capital gains tax rate
-  long_term_cg_rate: 0.20                     # Long-term capital gains tax rate
-  ordinary_income_offset_limit: 3000          # Max loss offset for ordinary income
-  long_term_threshold_days: 365               # Days threshold for long-term classification
-  valuation_date: "2025-01-15"               # Date for calculating holding periods
+  short_term_cg_rate: 0.37
+  long_term_cg_rate: 0.20
+  ordinary_income_offset_limit: 3000
+  long_term_threshold_days: 365
+  valuation_date: "2025-01-15"
+
+constraints:
+  # Ensure at least 90% of shares are sold for all securities
+  - type: "range_shares_required"
+    apply_to: "all"
+    min_percentage: 0.9
+    max_percentage: 0.9
+
+    # override for specific securities
+  - type: "range_shares_required"
+    apply_to: [ "GOOGL" ]
+    min_percentage: 1
+    max_percentage: 1
+
+  - type: "range_shares_required"
+    apply_to: ['MSFT']
+    min_percentage: 0.1
+    max_percentage: 0.1
+
+  - type: "max_total_capital_gains"
+    max_gain: 20000
+
+  - type: "max_short_term_gains"
+    max_gain: 20000
+
+  - type: "max_long_term_gains"
+    max_gain: 40000
 
 # Output settings
 output:
   save_results: true
-  formats: [ "json", "csv"]
-  directory: 'tests/test_outputs'  # null = auto-generate as base_path/outputs/model_name
+  formats: ["json", "csv"]
+  directory: 'tests/test_outputs'
 
-# Base path for relative paths
 base_path: "."
-
-# Additional metadata (informational only)
-metadata:
-  client_name: "Sample Client"
-  portfolio_type: "Individual Taxable Account"
-  optimization_date: "2025-01-15"
-  analyst: "Portfolio Optimization Team"
-  notes: "Tax-loss harvesting with ST/LT consideration"

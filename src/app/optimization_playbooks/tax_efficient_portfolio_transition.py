@@ -1,6 +1,12 @@
 """
+----------------------------------------------------------------------------------
 Tax-Efficient Portfolio Transition Playbook
 Optimize stock liquidation with short-term/long-term capital gains considerations.
+----------------------------------------------------------------------------------
+you want to move a client's existing holdings from one platform to another,
+but you don't want to blindly sell everything and trigger large capital gains.
+The trick is to sell only what's required and buy back
+in a way that keeps the portfolio close to the original while staying under a gain limit.
 """
 
 from typing import Dict, List, Optional, Any, Tuple
@@ -38,6 +44,7 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
         # Data structures
         self.lots: Optional[pd.DataFrame] = None
         self.lot_variables: Dict[int, Any] = {}
+        self.lot_binary_vars: Dict[int, Any] = {}
 
     def load_data(self) -> Dict[str, Any]:
         """Load tax-efficient portfolio transition data from config."""
@@ -74,6 +81,23 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
         missing = [col for col in required_cols if col not in purchase_history.columns]
         if missing:
             errors.append(f"Purchase history missing columns: {missing}")
+
+        # VALIDATE MANDATORY SHARE REQUIREMENT CONSTRAINT
+        constraints_config = self.config.get('constraints', [])
+        has_share_constraint = any(
+            c.get('type') == 'range_shares_required'
+            for c in constraints_config
+        )
+
+        if not has_share_constraint:
+            errors.append(
+                "MANDATORY: 'range_shares_required' constraint missing.\n"
+                "    Example:\n"
+                "      - type: range_shares_required\n"
+                "        apply_to: all\n"
+                "        min_percentage: 1.0  # Full liquidation\n"
+                "        max_percentage: 1.0"
+            )
 
         return len(errors) == 0, errors
 
@@ -128,6 +152,11 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
                                                      purchase_history['is_long_term'] & purchase_history['is_loss']
                                              ).astype(float) * purchase_history['total_capital_gain']
 
+        # Calculate proceeds per lot
+        purchase_history['proceeds'] = (
+                purchase_history['current_price'] * purchase_history['shares_purchased']
+        )
+
         self.lots = purchase_history
         shares_required = holdings.set_index('ticker')['shares_held'].to_dict()
         tickers = holdings['ticker'].unique().tolist()
@@ -145,7 +174,66 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
         shares_required = processed_data['shares_required']
         tickers = processed_data['tickers']
 
-        # Decision variables: fraction of each lot to sell (0 to 1)
+        # ==========================================================
+        # 1) MERGE SHARE REQUIREMENT CONSTRAINTS (DEFAULT + OVERRIDES)
+        # ==========================================================
+        def merge_range_share_constraints(constraints_cfg, tickers):
+            defaults = None
+            overrides = []
+
+            # Scan constraints
+            for c in constraints_cfg:
+                if c.get("type") != "range_shares_required":
+                    continue
+
+                apply_to = c.get("apply_to")
+
+                # default block
+                if apply_to == "all":
+                    defaults = {
+                        "min_percentage": c.get("min_percentage", 1.0),
+                        "max_percentage": c.get("max_percentage", 1.0),
+                    }
+                else:
+                    overrides.append(c)
+
+            if defaults is None:
+                raise ValueError(
+                    "Share requirement constraint is MANDATORY.\n"
+                    "Add:\n"
+                    "  - type: range_shares_required\n"
+                    "    apply_to: all\n"
+                    "    min_percentage: ...\n"
+                    "    max_percentage: ..."
+                )
+
+            # Build merged final map
+            merged = {t: defaults.copy() for t in tickers}
+
+            for c in overrides:
+                apply_to = c["apply_to"]
+                if isinstance(apply_to, str):
+                    apply_to = [apply_to]
+
+                for t in apply_to:
+                    if t not in merged:
+                        continue
+                    if "min_percentage" in c:
+                        merged[t]["min_percentage"] = c["min_percentage"]
+                    if "max_percentage" in c:
+                        merged[t]["max_percentage"] = c["max_percentage"]
+
+            return merged
+
+        # run merge
+        merged_range_constraints = merge_range_share_constraints(
+            self.config.get('constraints', []),
+            tickers
+        )
+
+        # ==========================================================
+        # BUILD VARIABLES (unchanged)
+        # ==========================================================
         for idx, row in lots.iterrows():
             var_name = f"lot_{row['lot_id']}"
             self.lot_variables[row['lot_id']] = self.optimizer.add_variable(
@@ -155,7 +243,22 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
                 ub=1.0
             )
 
-        # Calculate component expressions
+            bin_var_name = f"lot_sel_{row['lot_id']}"
+            self.lot_binary_vars[row['lot_id']] = self.optimizer.add_variable(
+                name=bin_var_name,
+                var_type='binary'
+            )
+
+            self.optimizer.add_constraint(
+                name=f"link_binary_{row['lot_id']}",
+                expression=self.lot_variables[row['lot_id']] - self.lot_binary_vars[row['lot_id']],
+                constraint_type='leq',
+                rhs=0.0
+            )
+
+        # ==========================================================
+        # BUILD EXPRESSIONS (unchanged)
+        # ==========================================================
         st_gains_expr = sum(
             self.lot_variables[row['lot_id']] * row['short_term_gain']
             for _, row in lots.iterrows()
@@ -176,12 +279,13 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
             for _, row in lots.iterrows()
         )
 
-        # Build objective based on config
+        # ==========================================================
+        # OBJECTIVE (unchanged)
+        # ==========================================================
         objective_config = self.config.get('objective', {})
         objective_function = objective_config.get('function', 'minimize_tax_liability')
 
         if objective_function == 'minimize_tax_liability':
-            # Minimize tax liability (default)
             objective_expr = (
                     (st_gains_expr + st_losses_expr) * self.short_term_cg_rate +
                     (lt_gains_expr + lt_losses_expr) * self.long_term_cg_rate
@@ -189,32 +293,26 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
             self.optimizer.set_objective(objective_expr, sense='minimize')
 
         elif objective_function == 'maximize_capital_losses':
-            # Maximize capital losses (for tax harvesting)
             objective_expr = st_losses_expr + lt_losses_expr
             self.optimizer.set_objective(objective_expr, sense='maximize')
 
         elif objective_function == 'minimize_short_term_gains':
-            # Minimize short-term gains specifically
             objective_expr = st_gains_expr + st_losses_expr
             self.optimizer.set_objective(objective_expr, sense='minimize')
 
         elif objective_function == 'maximize_long_term_gains':
-            # Maximize long-term gains
             objective_expr = lt_gains_expr + lt_losses_expr
             self.optimizer.set_objective(objective_expr, sense='maximize')
 
         elif objective_function == 'minimize_total_gains':
-            # Minimize total capital gains
             objective_expr = st_gains_expr + st_losses_expr + lt_gains_expr + lt_losses_expr
             self.optimizer.set_objective(objective_expr, sense='minimize')
 
         elif objective_function == 'maximize_total_gains':
-            # Maximize total capital gains
             objective_expr = st_gains_expr + st_losses_expr + lt_gains_expr + lt_losses_expr
             self.optimizer.set_objective(objective_expr, sense='maximize')
 
         elif objective_function == 'weighted_tax_optimization':
-            # Weighted combination with custom weights
             weights = objective_config.get('weights', {})
             st_weight = weights.get('short_term', self.short_term_cg_rate)
             lt_weight = weights.get('long_term', self.long_term_cg_rate)
@@ -227,29 +325,140 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
         else:
             raise ValueError(f"Unknown objective function: {objective_function}")
 
-        # Constraints: Must sell exactly required shares per ticker
+        # ==========================================================
+        # APPLY MERGED SHARE CONSTRAINTS (clean & correct now)
+        # ==========================================================
         for ticker in tickers:
+            req = merged_range_constraints[ticker]
+            min_pct = req["min_percentage"]
+            max_pct = req["max_percentage"]
+
             ticker_lots = lots[lots['ticker'] == ticker]
+            required_shares = shares_required[ticker]
+
             constraint_expr = sum(
                 self.lot_variables[row['lot_id']] * row['shares_purchased']
                 for _, row in ticker_lots.iterrows()
             )
 
+            # min
             self.optimizer.add_constraint(
-                name=f"shares_required_{ticker}",
+                name=f"min_shares_{ticker}",
                 expression=constraint_expr,
-                constraint_type='eq',
-                rhs=shares_required[ticker]
+                constraint_type='geq',
+                rhs=required_shares * min_pct
             )
+
+            # max
+            self.optimizer.add_constraint(
+                name=f"max_shares_{ticker}",
+                expression=constraint_expr,
+                constraint_type='leq',
+                rhs=required_shares * max_pct
+            )
+
+        # ==========================================================
+        # OTHER CONSTRAINTS (unchanged)
+        # ==========================================================
+        for constraint in self.config.get('constraints', []):
+            constraint_type = constraint.get('type')
+
+            if constraint_type in ("range_shares_required", None):
+                continue  # we already handled merged form
+
+            if constraint_type == 'max_total_capital_gains':
+                max_gain = constraint.get('max_gain')
+                total_gains_expr = st_gains_expr + st_losses_expr + lt_gains_expr + lt_losses_expr
+                self.optimizer.add_constraint(
+                    name='max_total_capital_gains',
+                    expression=total_gains_expr,
+                    constraint_type='leq',
+                    rhs=max_gain
+                )
+
+            elif constraint_type == 'max_short_term_gains':
+                max_gain = constraint.get('max_gain')
+                st_net_expr = st_gains_expr + st_losses_expr
+                self.optimizer.add_constraint(
+                    name='max_short_term_gains',
+                    expression=st_net_expr,
+                    constraint_type='leq',
+                    rhs=max_gain
+                )
+
+            elif constraint_type == 'max_long_term_gains':
+                max_gain = constraint.get('max_gain')
+                lt_net_expr = lt_gains_expr + lt_losses_expr
+                self.optimizer.add_constraint(
+                    name='max_long_term_gains',
+                    expression=lt_net_expr,
+                    constraint_type='leq',
+                    rhs=max_gain
+                )
+
+            elif constraint_type == 'min_capital_loss_harvesting':
+                min_loss = constraint.get('min_loss')
+                total_gains_expr = st_gains_expr + st_losses_expr + lt_gains_expr + lt_losses_expr
+                self.optimizer.add_constraint(
+                    name='min_capital_loss_harvesting',
+                    expression=total_gains_expr,
+                    constraint_type='leq',
+                    rhs=min_loss
+                )
+
+            elif constraint_type == 'max_st_lt_gain_ratio':
+                max_ratio = constraint.get('max_ratio')
+                st_net_expr = st_gains_expr + st_losses_expr
+                lt_net_expr = lt_gains_expr + lt_losses_expr
+                ratio_expr = st_net_expr - max_ratio * lt_net_expr
+                self.optimizer.add_constraint(
+                    name='max_st_lt_gain_ratio',
+                    expression=ratio_expr,
+                    constraint_type='leq',
+                    rhs=0.0
+                )
+
+            elif constraint_type == 'min_total_proceeds':
+                min_proceeds = constraint.get('min_proceeds')
+                proceeds_expr = sum(
+                    self.lot_variables[row['lot_id']] * row['proceeds']
+                    for _, row in lots.iterrows()
+                )
+                self.optimizer.add_constraint(
+                    name='min_total_proceeds',
+                    expression=proceeds_expr,
+                    constraint_type='geq',
+                    rhs=min_proceeds
+                )
+
+            elif constraint_type == 'max_total_proceeds':
+                max_proceeds = constraint.get('max_proceeds')
+                proceeds_expr = sum(
+                    self.lot_variables[row['lot_id']] * row['proceeds']
+                    for _, row in lots.iterrows()
+                )
+                self.optimizer.add_constraint(
+                    name='max_total_proceeds',
+                    expression=proceeds_expr,
+                    constraint_type='leq',
+                    rhs=max_proceeds
+                )
 
     def extract_solution(self, opt_result: Dict[str, Any]) -> Dict[str, Any]:
         """Extract solution from optimization result."""
         if opt_result['variables'] is None:
+            print("\n" + "=" * 60)
+            print("OPTIMIZATION FAILED")
+            print("=" * 60)
+            print(f"Status: {opt_result.get('status')}")
+            print(f"Message: {opt_result.get('message')}")
+            print(f"Solver Time: {opt_result.get('solver_time')} seconds")
+            print("=" * 60 + "\n")
             return {
                 'status': 'error',
                 'sell_decisions': [],
                 'summary': {},
-                'error': 'No solution available'
+                'error': f"Optimization failed: {opt_result.get('message', 'No solution available')}"
             }
 
         # Build sell_decisions list
@@ -271,7 +480,8 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
                 'current_price': float(lot_info['current_price']),
                 'is_long_term': bool(lot_info['is_long_term']),
                 'holding_period_days': int(lot_info['holding_period_days']),
-                'capital_gain': float(sell_fraction * lot_info['total_capital_gain'])
+                'capital_gain': float(sell_fraction * lot_info['total_capital_gain']),
+                'proceeds': float(sell_fraction * lot_info['proceeds'])
             })
 
         # Calculate summary statistics
@@ -296,6 +506,9 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
             lot['capital_gain'] for lot in sold_lots
             if lot['is_long_term'] and lot['capital_gain'] < 0
         )
+
+        total_proceeds = sum(lot['proceeds'] for lot in sold_lots)
+        lots_sold_count = len(sold_lots)
 
         # Calculate net amounts
         net_short_term_gain = total_short_term_gain + total_short_term_loss
@@ -333,6 +546,8 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
                 'taxable_capital_gain': float(taxable_capital_gain),
                 'carryforward_loss': float(carryforward_loss),
                 'estimated_tax': float(estimated_tax),
+                'total_proceeds': float(total_proceeds),
+                'lots_sold_count': int(lots_sold_count),
                 'short_term_tax_rate': float(self.short_term_cg_rate),
                 'long_term_tax_rate': float(self.long_term_cg_rate)
             }
@@ -354,11 +569,12 @@ class TaxEfficientPortfolioTransition(BasePlaybook):
         if len(lots_sold_df) > 0:
             ticker_summary = lots_sold_df.groupby('ticker').agg({
                 'quantity_to_sell': 'sum',
-                'capital_gain': 'sum'
+                'capital_gain': 'sum',
+                'proceeds': 'sum'
             }).reset_index()
-            ticker_summary.columns = ['ticker', 'shares_sold', 'capital_gain']
+            ticker_summary.columns = ['ticker', 'shares_sold', 'capital_gain', 'proceeds']
         else:
-            ticker_summary = pd.DataFrame(columns=['ticker', 'shares_sold', 'capital_gain'])
+            ticker_summary = pd.DataFrame(columns=['ticker', 'shares_sold', 'capital_gain', 'proceeds'])
 
         output = {
             'status': solution['status'],
