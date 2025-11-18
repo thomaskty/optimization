@@ -15,7 +15,9 @@ import json
 from app.models.optimizers.base_optimizer import BaseOptimizer
 from app.models.optimizers.milp import MILPOptimizer
 
-from app.utils.typings import OPTIMIZER_TYPES
+OPTIMIZER_TYPES = {
+    'milp': MILPOptimizer
+}
 
 
 class GenericPlaybook(ABC):

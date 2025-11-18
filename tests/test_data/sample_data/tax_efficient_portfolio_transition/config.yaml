@@ -21,7 +21,7 @@ data:
 calculated_fields:
   # Operations on purchase_history
   purchase_history:
-    # Step 1: Convert dates
+    # Step 1: Convert dates: creating a column with datetime objects
     - acquisition_date_dt: "pd.to_datetime(acquisition_date)"
 
     # Step 2: Merge holdings data
@@ -81,7 +81,7 @@ decision_variables:
 # OBJECTIVE FUNCTION
 # ============================================================================
 objective:
-  sense: "minimize"
+  sense: "minimize" # minimize or maximize
   description: "Minimize total tax liability (short-term + long-term capital gains tax)"
 
   # Tax rates as parameters
