@@ -1,21 +1,199 @@
-# Simple Tax-Efficient Portfolio Liquidation Configuration
+# Tax-Efficient Portfolio Transition - Complete Config
+# File: tests/test_data/sample_data/tax_efficient_portfolio_transition/config_generic.yaml
 
-model_name: "TE_SIMPLE"
+model_type: "milp"
+model_name: "TE_GENERIC"
 model_id: "TE_001"
 submission_id: "SUB_001"
-model_type: "milp"
 playbook_type: "tax_efficient_portfolio_transition"
 
-# Data files
-datasets:
-  holdings: "tests/test_data/sample_data/tax_efficient_portfolio_transition/holdings.csv"
-  acquisitions: "tests/test_data/sample_data/tax_efficient_portfolio_transition/purchase_history.csv"
+# ============================================================================
+# DATA SOURCES
+# ============================================================================
+data:
+  files:
+    holdings: "tests/test_data/sample_data/tax_efficient_portfolio_transition/holdings.csv"
+    purchase_history: "tests/test_data/sample_data/tax_efficient_portfolio_transition/purchase_history.csv"
 
-# What to optimize
+# ============================================================================
+# CALCULATED FIELDS (Pure Pandas Operations)
+# ============================================================================
+calculated_fields:
+  # Operations on purchase_history
+  purchase_history:
+    # Step 1: Convert dates
+    - acquisition_date_dt: "pd.to_datetime(acquisition_date)"
+
+    # Step 2: Merge holdings data
+    - _merge_holdings: |
+        data['purchase_history'].merge(
+          data['holdings'][['ticker', 'current_price', 'shares_held']], 
+          on='ticker', 
+          how='left'
+        )
+
+    # Step 3: Calculate holding period
+    - holding_days: "(pd.to_datetime('2025-01-15') - acquisition_date_dt).dt.days"
+
+    # Step 4: Classify term
+    - is_long_term: "holding_days >= 365"
+
+    # Step 5: Calculate capital gains
+    - capital_gain_per_share: "current_price - purchase_price"
+    - total_capital_gain: "capital_gain_per_share * shares_purchased"
+
+    # Step 6: Determine gain/loss direction
+    - is_gain: "total_capital_gain > 0"
+    - is_loss: "total_capital_gain < 0"
+
+    # Step 7: Split by term and direction (for tax calculation)
+    - short_term_gain: "np.where((~is_long_term) & is_gain, total_capital_gain, 0)"
+    - short_term_loss: "np.where((~is_long_term) & is_loss, total_capital_gain, 0)"
+    - long_term_gain: "np.where(is_long_term & is_gain, total_capital_gain, 0)"
+    - long_term_loss: "np.where(is_long_term & is_loss, total_capital_gain, 0)"
+
+    # Step 8: Calculate proceeds
+    - proceeds: "current_price * shares_purchased"
+
+    # Step 9: Add lot identifier
+    - lot_id: "range(len(data['purchase_history']))"
+
+# ============================================================================
+# DECISION VARIABLES
+# ============================================================================
+decision_variables:
+  # Continuous variable: fraction of each lot to sell (0 to 1)
+  - name: "sell_fraction"
+    template: "lot_{lot_id}"
+    index_from: "purchase_history"
+    index_column: "lot_id"
+    type: "continuous"
+    bounds: [0, 1]
+
+  # Binary variable: whether lot is selected for selling
+  - name: "lot_selected"
+    template: "lot_sel_{lot_id}"
+    index_from: "purchase_history"
+    index_column: "lot_id"
+    type: "binary"
+
+# ============================================================================
+# OBJECTIVE FUNCTION
+# ============================================================================
 objective:
-  function: "minimize_tax_liability"  # Or: maximize_capital_losses, minimize_short_term_gains, etc.
+  sense: "minimize"
+  description: "Minimize total tax liability (short-term + long-term capital gains tax)"
 
-# Solver settings
+  # Tax rates as parameters
+  parameters:
+    short_term_rate: 0.37
+    long_term_rate: 0.20
+
+  # Expression: sum of all tax liabilities across lots
+  expression: |
+    sum(
+      vars['sell_fraction'][row['lot_id']] * (
+        row['short_term_gain'] * 0.37 +
+        row['short_term_loss'] * 0.37 +
+        row['long_term_gain'] * 0.20 +
+        row['long_term_loss'] * 0.20
+      )
+      for _, row in data['purchase_history'].iterrows()
+    )
+
+# ============================================================================
+# CONSTRAINTS
+# ============================================================================
+constraints:
+  # Constraint 1: Link binary variable to continuous variable
+  # If sell_fraction > 0, then lot_selected must be 1
+  - name: "link_binary_to_continuous"
+    type: "for_each"
+    iterate_over: "purchase_history"
+    description: "Binary indicator constraint: sell_fraction <= lot_selected"
+    expression: |
+      vars['sell_fraction'][row['lot_id']] - vars['lot_selected'][row['lot_id']]
+    constraint_type: "leq"
+    rhs: 0.0
+
+  # Constraint 2: Share balance for AAPL (90% liquidation)
+  - name: "shares_balance_AAPL"
+    type: "single"
+    description: "Must sell 90% of AAPL shares (112.5 out of 125)"
+    expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'AAPL'
+      )
+    constraint_type: "eq"
+    rhs: 112.5
+
+  # Constraint 3: Share balance for MSFT (10% liquidation)
+  - name: "shares_balance_MSFT"
+    type: "single"
+    description: "Must sell 10% of MSFT shares (17 out of 170)"
+    expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'MSFT'
+      )
+    constraint_type: "eq"
+    rhs: 17.0
+
+  # Constraint 4: Share balance for GOOGL (100% liquidation)
+  - name: "shares_balance_GOOGL"
+    type: "single"
+    description: "Must sell 100% of GOOGL shares (95 out of 95)"
+    expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'GOOGL'
+      )
+    constraint_type: "eq"
+    rhs: 95.0
+
+  # Constraint 5: Maximum total capital gains limit
+  - name: "max_total_capital_gains"
+    type: "single"
+    description: "Total realized capital gains cannot exceed $20,000"
+    expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['total_capital_gain']
+        for _, row in data['purchase_history'].iterrows()
+      )
+    constraint_type: "leq"
+    rhs: 20000
+
+  # Constraint 6: Maximum short-term capital gains limit
+  - name: "max_short_term_gains"
+    type: "single"
+    description: "Net short-term capital gains cannot exceed $20,000"
+    expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * (row['short_term_gain'] + row['short_term_loss'])
+        for _, row in data['purchase_history'].iterrows()
+      )
+    constraint_type: "leq"
+    rhs: 20000
+
+  # Constraint 7: Maximum long-term capital gains limit
+  - name: "max_long_term_gains"
+    type: "single"
+    description: "Net long-term capital gains cannot exceed $40,000"
+    expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * (row['long_term_gain'] + row['long_term_loss'])
+        for _, row in data['purchase_history'].iterrows()
+      )
+    constraint_type: "leq"
+    rhs: 40000
+
+# ============================================================================
+# SOLVER CONFIGURATION
+# ============================================================================
 optimizer_params:
   solver: "APOPT"
   remote: false
@@ -23,45 +201,61 @@ optimizer_params:
   max_iter: 1000
   mip_gap: 0.01
 
-# Tax rates and rules
-tax_parameters:
-  short_term_cg_rate: 0.37
-  long_term_cg_rate: 0.20
-  ordinary_income_offset_limit: 3000
-  long_term_threshold_days: 365
-  valuation_date: "2025-01-15"
-
-constraints:
-  # Ensure at least 90% of shares are sold for all securities
-  - type: "range_shares_required"
-    apply_to: "all"
-    min_percentage: 0.9
-    max_percentage: 0.9
-
-    # override for specific securities
-  - type: "range_shares_required"
-    apply_to: [ "GOOGL" ]
-    min_percentage: 1
-    max_percentage: 1
-
-  - type: "range_shares_required"
-    apply_to: ['MSFT']
-    min_percentage: 0.1
-    max_percentage: 0.1
-
-  - type: "max_total_capital_gains"
-    max_gain: 20000
-
-  - type: "max_short_term_gains"
-    max_gain: 20000
-
-  - type: "max_long_term_gains"
-    max_gain: 40000
-
-# Output settings
+# ============================================================================
+# OUTPUT CONFIGURATION
+# ============================================================================
 output:
   save_results: true
-  formats: ["json", "csv"]
-  directory: 'tests/test_outputs'
+  directory: "tests/test_outputs"
+  formats: [ "json", "csv" ]
+
+  # Variables to extract from solution
+  extract_variables:
+    - "sell_fraction"
+    - "lot_selected"
+
+  # Post-processing calculations for summary
+  summary_calculations:
+    total_short_term_gains:
+      expression: |
+        sum(
+          result['variables'][f"lot_{row['lot_id']}"] * row['short_term_gain']
+          for _, row in data['purchase_history'].iterrows()
+        )
+
+    total_short_term_losses:
+      expression: |
+        sum(
+          result['variables'][f"lot_{row['lot_id']}"] * row['short_term_loss']
+          for _, row in data['purchase_history'].iterrows()
+        )
+
+    total_long_term_gains:
+      expression: |
+        sum(
+          result['variables'][f"lot_{row['lot_id']}"] * row['long_term_gain']
+          for _, row in data['purchase_history'].iterrows()
+        )
+
+    total_long_term_losses:
+      expression: |
+        sum(
+          result['variables'][f"lot_{row['lot_id']}"] * row['long_term_loss']
+          for _, row in data['purchase_history'].iterrows()
+        )
+
+    total_proceeds:
+      expression: |
+        sum(
+          result['variables'][f"lot_{row['lot_id']}"] * row['proceeds']
+          for _, row in data['purchase_history'].iterrows()
+        )
+
+    lots_sold_count:
+      expression: |
+        sum(
+          1 for _, row in data['purchase_history'].iterrows()
+          if result['variables'][f"lot_{row['lot_id']}"] > 0.001
+        )
 
 base_path: "."
