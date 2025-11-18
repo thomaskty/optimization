@@ -11,9 +11,8 @@ playbook_type: "tax_efficient_portfolio_transition"
 # DATA SOURCES
 # ============================================================================
 data:
-  files:
-    holdings: "tests/test_data/sample_data/tax_efficient_portfolio_transition/holdings.csv"
-    purchase_history: "tests/test_data/sample_data/tax_efficient_portfolio_transition/purchase_history.csv"
+  holdings: "tests/test_data/sample_data/tax_efficient_portfolio_transition/holdings.csv"
+  purchase_history: "tests/test_data/sample_data/tax_efficient_portfolio_transition/purchase_history.csv"
 
 # ============================================================================
 # CALCULATED FIELDS (Pure Pandas Operations)

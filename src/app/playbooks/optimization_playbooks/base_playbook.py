@@ -147,8 +147,7 @@ class GenericPlaybook(ABC):
     def _load_data(self) -> Dict[str, pd.DataFrame]:
         """Load data files specified in config."""
         data = {}
-        data_config = self.config.get('data', {})
-        files = data_config.get('files', {})
+        files = self.config.get('data', {})
 
         base_path = Path(self.config.get('base_path', '.'))
 
