@@ -7,8 +7,8 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any
 
-from app.playbooks.optimization_playbooks.tax_efficient_portfolio_transition import TaxEfficientPortfolioTransition
-from app.playbooks.optimization_playbooks.base_playbook import GenericPlaybook
+from app.playbooks.optimization_playbooks.milp_executor import TaxEfficientPortfolioTransition
+from app.playbooks.optimization_playbooks.base_optimization_executor import GenericPlaybook
 
 
 PLAYBOOK_TYPES = {

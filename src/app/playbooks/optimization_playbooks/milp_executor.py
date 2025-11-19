@@ -8,7 +8,7 @@ import pandas as pd
 import json
 from datetime import datetime
 
-from app.playbooks.optimization_playbooks.base_playbook import GenericPlaybook
+from app.playbooks.optimization_playbooks.base_optimization_executor import GenericPlaybook
 
 
 class TaxEfficientPortfolioTransition(GenericPlaybook):

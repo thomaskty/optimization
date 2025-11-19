@@ -102,12 +102,13 @@ objective:
 
 # ============================================================================
 # CONSTRAINTS
+# three types of constraints : "for each row", "for each group","single"
 # ============================================================================
 constraints:
   # Constraint 1: Link binary variable to continuous variable
   # If sell_fraction > 0, then lot_selected must be 1
   - name: "link_binary_to_continuous"
-    type: "for_each"
+    type: "for_each" # loop through every row in the purchase_history dataframe and create a constraint for each row.
     iterate_over: "purchase_history"
     description: "Binary indicator constraint: sell_fraction <= lot_selected"
     expression: |
@@ -117,7 +118,7 @@ constraints:
 
   # Constraint 2: Share balance for AAPL (90% liquidation)
   - name: "shares_balance_AAPL"
-    type: "single"
+    type: "single" # exactly one constraint (not a loop)
     description: "Must sell 90% of AAPL shares (112.5 out of 125)"
     expression: |
       sum(
