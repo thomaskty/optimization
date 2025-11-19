@@ -1,3 +1,0 @@
-
-
-You need to create one decision variable per row (per lot) to decide how much of each lot to sell.

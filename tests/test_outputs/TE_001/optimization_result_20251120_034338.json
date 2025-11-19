@@ -1,6 +1,6 @@
 {
   "status": "optimal",
-  "objective_value": 1124.05,
+  "objective_value": 710.05,
   "sell_decisions": [
     {
       "ticker": "AAPL",
@@ -13,7 +13,7 @@
       "shares_to_sell": 17.4999999999,
       "capital_gain": 1487.4999999915,
       "is_long_term": true,
-      "holding_days": 1767,
+      "holding_days": 1777,
       "proceeds": 3149.999999982
     },
     {
@@ -27,7 +27,7 @@
       "shares_to_sell": 25.0,
       "capital_gain": 1250.0,
       "is_long_term": true,
-      "holding_days": 1305,
+      "holding_days": 1310,
       "proceeds": 4500.0
     },
     {
@@ -41,7 +41,7 @@
       "shares_to_sell": 20.0,
       "capital_gain": 600.0,
       "is_long_term": true,
-      "holding_days": 736,
+      "holding_days": 711,
       "proceeds": 3600.0
     },
     {
@@ -54,8 +54,8 @@
       "sell_fraction": 1.0,
       "shares_to_sell": 15.0,
       "capital_gain": 300.0,
-      "is_long_term": true,
-      "holding_days": 366,
+      "is_long_term": false,
+      "holding_days": 345,
       "proceeds": 2700.0
     },
     {
@@ -69,7 +69,7 @@
       "shares_to_sell": 25.0,
       "capital_gain": 125.0,
       "is_long_term": false,
-      "holding_days": 163,
+      "holding_days": 138,
       "proceeds": 4500.0
     },
     {
@@ -83,7 +83,7 @@
       "shares_to_sell": 10.0,
       "capital_gain": 20.0,
       "is_long_term": false,
-      "holding_days": 75,
+      "holding_days": 50,
       "proceeds": 1800.0
     },
     {
@@ -97,7 +97,7 @@
       "shares_to_sell": 0.0,
       "capital_gain": 0.0,
       "is_long_term": true,
-      "holding_days": 1902,
+      "holding_days": 1881,
       "proceeds": 0.0
     },
     {
@@ -111,7 +111,7 @@
       "shares_to_sell": 0.0,
       "capital_gain": 0.0,
       "is_long_term": true,
-      "holding_days": 1374,
+      "holding_days": 1318,
       "proceeds": 0.0
     },
     {
@@ -125,7 +125,7 @@
       "shares_to_sell": 0.0,
       "capital_gain": 0.0,
       "is_long_term": true,
-      "holding_days": 848,
+      "holding_days": 827,
       "proceeds": 0.0
     },
     {
@@ -139,7 +139,7 @@
       "shares_to_sell": 0.0,
       "capital_gain": 0.0,
       "is_long_term": true,
-      "holding_days": 585,
+      "holding_days": 529,
       "proceeds": 0.0
     },
     {
@@ -152,8 +152,8 @@
       "sell_fraction": 0.0,
       "shares_to_sell": 0.0,
       "capital_gain": 0.0,
-      "is_long_term": true,
-      "holding_days": 404,
+      "is_long_term": false,
+      "holding_days": 348,
       "proceeds": 0.0
     },
     {
@@ -167,7 +167,7 @@
       "shares_to_sell": 17.0,
       "capital_gain": 170.0,
       "is_long_term": false,
-      "holding_days": 92,
+      "holding_days": 36,
       "proceeds": 7140.0
     },
     {
@@ -177,12 +177,12 @@
       "shares_purchased": 25.0,
       "purchase_price": 80.0,
       "current_price": 140.0,
-      "sell_fraction": 1.0,
-      "shares_to_sell": 25.0,
-      "capital_gain": 1500.0,
+      "sell_fraction": 0.0,
+      "shares_to_sell": 0.0,
+      "capital_gain": 0.0,
       "is_long_term": true,
-      "holding_days": 1638,
-      "proceeds": 3500.0
+      "holding_days": 1583,
+      "proceeds": 0.0
     },
     {
       "ticker": "GOOGL",
@@ -191,12 +191,12 @@
       "shares_purchased": 20.0,
       "purchase_price": 110.0,
       "current_price": 140.0,
-      "sell_fraction": 1.0,
-      "shares_to_sell": 20.0,
-      "capital_gain": 600.0,
+      "sell_fraction": 0.0,
+      "shares_to_sell": 0.0,
+      "capital_gain": 0.0,
       "is_long_term": true,
-      "holding_days": 1034,
-      "proceeds": 2800.0
+      "holding_days": 978,
+      "proceeds": 0.0
     },
     {
       "ticker": "GOOGL",
@@ -205,12 +205,12 @@
       "shares_purchased": 15.0,
       "purchase_price": 125.0,
       "current_price": 140.0,
-      "sell_fraction": 1.0,
-      "shares_to_sell": 15.0,
-      "capital_gain": 225.0,
+      "sell_fraction": 0.0,
+      "shares_to_sell": 0.0,
+      "capital_gain": 0.0,
       "is_long_term": true,
-      "holding_days": 509,
-      "proceeds": 2100.0
+      "holding_days": 453,
+      "proceeds": 0.0
     },
     {
       "ticker": "GOOGL",
@@ -223,7 +223,7 @@
       "shares_to_sell": 15.0,
       "capital_gain": -300.0,
       "is_long_term": false,
-      "holding_days": 217,
+      "holding_days": 161,
       "proceeds": 2100.0
     },
     {
@@ -237,7 +237,7 @@
       "shares_to_sell": 10.0,
       "capital_gain": -150.0,
       "is_long_term": false,
-      "holding_days": 117,
+      "holding_days": 61,
       "proceeds": 1400.0
     },
     {
@@ -251,26 +251,26 @@
       "shares_to_sell": 10.0,
       "capital_gain": -50.0,
       "is_long_term": false,
-      "holding_days": 46,
+      "holding_days": -10,
       "proceeds": 1400.0
     }
   ],
   "summary": {
-    "total_short_term_gains": 315.0,
+    "total_short_term_gains": 615.0,
     "total_short_term_losses": -500.0,
-    "total_long_term_gains": 5962.4999999915,
+    "total_long_term_gains": 3337.4999999915,
     "total_long_term_losses": 0.0,
-    "net_short_term_gain": -185.0,
-    "net_long_term_gain": 5962.4999999915,
-    "total_net_capital_gain": 5777.4999999915,
-    "estimated_tax": 1192.4999999983,
-    "total_proceeds": 40689.999999982,
-    "lots_sold_count": 13,
+    "net_short_term_gain": 115.0,
+    "net_long_term_gain": 3337.4999999915,
+    "total_net_capital_gain": 3452.4999999915,
+    "estimated_tax": 710.0499999983,
+    "total_proceeds": 32289.999999982,
+    "lots_sold_count": 10,
     "short_term_tax_rate": 0.37,
     "long_term_tax_rate": 0.2
   },
   "solver_info": {
-    "solver_time": 0.0582122802734375,
+    "solver_time": 0.05034756660461426,
     "status": "optimal"
   }
 }

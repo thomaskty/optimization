@@ -1,0 +1,2 @@
+total_products_produced,product_types,total_revenue,total_setup_cost,net_profit,wood_used,wood_available,wood_utilization,labor_used,labor_available,labor_utilization,machine_used,machine_available,machine_utilization
+283,2,29150.0,0.0,29150.0,1466.0,2000.0,73.3,799.5,800.0,99.9375,366.5,400.0,91.625

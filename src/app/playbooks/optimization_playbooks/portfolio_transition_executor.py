@@ -18,7 +18,13 @@ class TaxEfficientPortfolioTransition(GenericPlaybook):
     """
 
     def _extract_solution(self, opt_result: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract and format solution with tax-specific details."""
+        """Extract and format solution."""
+
+        # DEBUG: Print all variable values
+        print("\nDEBUG: Variable values:")
+        for var_name, var_value in opt_result['variables'].items():
+            print(f"  {var_name} = {var_value}")
+
         if opt_result['status'] != 'optimal':
             return {
                 'status': 'error',
@@ -30,7 +36,7 @@ class TaxEfficientPortfolioTransition(GenericPlaybook):
 
         for idx, row in purchase_history.iterrows():
             lot_id = row['lot_id']
-            var_name = f"lot_{lot_id}"
+            var_name = f"sell_fraction_{lot_id}"
             sell_fraction = opt_result['variables'].get(var_name, 0.0)
 
             sell_decisions.append({
@@ -59,11 +65,7 @@ class TaxEfficientPortfolioTransition(GenericPlaybook):
         net_lt_gain = total_lt_gains + total_lt_losses
         total_net_gain = net_st_gain + net_lt_gain
 
-        tax_params = self.config.get('objective', {}).get('parameters', {})
-        st_rate = tax_params.get('short_term_rate', 0.37)
-        lt_rate = tax_params.get('long_term_rate', 0.20)
-
-        estimated_tax = max(0, net_st_gain) * st_rate + max(0, net_lt_gain) * lt_rate
+        estimated_tax = max(0, net_st_gain) * 0.37 + max(0, net_lt_gain) * 0.20
         total_proceeds = sum(s['proceeds'] for s in sold_lots)
 
         return {
@@ -82,8 +84,8 @@ class TaxEfficientPortfolioTransition(GenericPlaybook):
                 'estimated_tax': float(estimated_tax),
                 'total_proceeds': float(total_proceeds),
                 'lots_sold_count': len(sold_lots),
-                'short_term_tax_rate': float(st_rate),
-                'long_term_tax_rate': float(lt_rate)
+                'short_term_tax_rate': 0.37,
+                'long_term_tax_rate': 0.20
             }
         }
 

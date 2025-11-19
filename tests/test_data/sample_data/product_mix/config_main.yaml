@@ -1,0 +1,70 @@
+model_name: "PRODUCT_MIX"
+model_id: "PM_001"
+submission_id: "SUB_PM_001"
+playbook_type: "product_mix"
+
+# ============================================================================
+# DATA SOURCES
+# ============================================================================
+data:
+  products: "tests/test_data/sample_data/product_mix/products.csv"
+  resources: "tests/test_data/sample_data/product_mix/resources.csv"
+
+# ============================================================================
+# DECISION VARIABLES
+# ============================================================================
+variables:
+  # How many units of each product to produce
+  - name: "production"
+    index: "products.product_id"
+    type: "integer"
+    lb: 0
+
+  # Binary: whether to produce this product (incurs setup cost)
+  - name: "produce"
+    index: "products.product_id"
+    type: "binary"
+
+objective:
+  sense: "maximize"
+  expression: |
+    sum(
+      vars['production'][row['product_id']] * row['profit_per_unit']
+      for _, row in data['products'].iterrows()
+    )
+
+constraints:
+  # Just resource constraints
+  - expression: |
+      sum(vars['production'][row['product_id']] * row['wood_required']
+          for _, row in data['products'].iterrows()) <= 2000
+
+  - expression: |
+      sum(vars['production'][row['product_id']] * row['labor_hours']
+          for _, row in data['products'].iterrows()) <= 800
+
+  - expression: |
+      sum(vars['production'][row['product_id']] * row['machine_hours']
+          for _, row in data['products'].iterrows()) <= 400
+
+  # Simple bounds
+  - expression: |
+      [vars['production'][row['product_id']] >= 0
+       for _, row in data['products'].iterrows()]
+
+# ============================================================================
+# SOLVER
+# ============================================================================
+solver:
+  type: "APOPT"
+  time_limit: 300
+  max_iter: 1000
+  mip_gap: 0.01
+
+# ============================================================================
+# OUTPUT
+# ============================================================================
+output:
+  directory: "tests/test_outputs"
+
+base_path: "."

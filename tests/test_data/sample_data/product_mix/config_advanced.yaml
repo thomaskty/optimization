@@ -1,0 +1,183 @@
+model_name: "PRODUCT_MIX_ADVANCED"
+model_id: "PM_ADV_001"
+submission_id: "SUB_PM_ADV_001"
+playbook_type: "product_mix"
+
+# ============================================================================
+# DATA SOURCES
+# ============================================================================
+data:
+  products: "tests/test_data/sample_data/product_mix/products.csv"
+  resources: "tests/test_data/sample_data/product_mix/resources.csv"
+  demand_forecast: "tests/test_data/sample_data/product_mix/demand_forecast.csv"
+  material_costs: "tests/test_data/sample_data/product_mix/material_costs.csv"
+  warehouse_capacity: "tests/test_data/sample_data/product_mix/warehouse_capacity.csv"
+  production_batches: "tests/test_data/sample_data/product_mix/production_batches.csv"
+
+# ============================================================================
+# DECISION VARIABLES
+# ============================================================================
+variables:
+  # Production quantity per product
+  - name: "production"
+    index: "products.product_id"
+    type: "integer"
+    lb: 0
+
+  # Binary: whether to produce this product
+  - name: "produce"
+    index: "products.product_id"
+    type: "binary"
+
+  # Warehouse allocation: which warehouse stores which product
+  - name: "warehouse_alloc"
+    index: "products.product_id"
+    type: "integer"
+    lb: 0
+
+  # Number of production batches per product
+  - name: "batches"
+    index: "products.product_id"
+    type: "integer"
+    lb: 0
+
+  # Demand shortfall (penalty variable)
+  - name: "shortfall"
+    index: "products.product_id"
+    type: "integer"
+    lb: 0
+
+# ============================================================================
+# OBJECTIVE
+# ============================================================================
+objective:
+  sense: "maximize"
+  description: "Maximize profit minus costs and penalties"
+  expression: |
+    sum(
+      vars['production'][row['product_id']] * row['profit_per_unit'] -
+      vars['produce'][row['product_id']] * row['setup_cost'] -
+      vars['production'][row['product_id']] * costs_row['material_cost_per_unit'] -
+      vars['production'][row['product_id']] * costs_row['labor_cost_per_unit'] -
+      vars['production'][row['product_id']] * costs_row['overhead_per_unit'] -
+      vars['shortfall'][row['product_id']] * demand_row['penalty_per_unit_short'] -
+      vars['warehouse_alloc'][row['product_id']] * 2
+      for (_, row), (_, costs_row), (_, demand_row) in zip(
+        data['products'].iterrows(),
+        data['material_costs'].iterrows(),
+        data['demand_forecast'].iterrows()
+      )
+    )
+
+# ============================================================================
+# CONSTRAINTS
+# ============================================================================
+constraints:
+  # 1. Link production to binary decision
+  - expression: |
+      [vars['production'][row['product_id']] <= 
+       vars['produce'][row['product_id']] * row['max_storage']
+       for _, row in data['products'].iterrows()]
+
+  # 2. Minimum batch size constraints
+  - expression: |
+      [vars['production'][row['product_id']] >= 
+       vars['batches'][row['product_id']] * batch_row['min_batch_size']
+       for (_, row), (_, batch_row) in zip(
+         data['products'].iterrows(),
+         data['production_batches'].iterrows()
+       )]
+
+  # 3. Maximum batch size constraints
+  - expression: |
+      [vars['production'][row['product_id']] <= 
+       vars['batches'][row['product_id']] * batch_row['min_batch_size'] * 1.5
+       for (_, row), (_, batch_row) in zip(
+         data['products'].iterrows(),
+         data['production_batches'].iterrows()
+       )]
+
+  # 4. Maximum batches per day
+  - expression: |
+      [vars['batches'][row['product_id']] <= batch_row['max_batches_per_day']
+       for (_, row), (_, batch_row) in zip(
+         data['products'].iterrows(),
+         data['production_batches'].iterrows()
+       )]
+
+  # 5. Demand fulfillment with shortfall
+  - expression: |
+      [vars['production'][row['product_id']] + vars['shortfall'][row['product_id']] >= 
+       demand_row['forecasted_demand']
+       for (_, row), (_, demand_row) in zip(
+         data['products'].iterrows(),
+         data['demand_forecast'].iterrows()
+       )]
+
+  # 6. Maximum storage capacity
+  - expression: |
+      [vars['production'][row['product_id']] <= row['max_storage']
+       for _, row in data['products'].iterrows()]
+
+  # 7. Warehouse allocation must equal production
+  - expression: |
+      [vars['warehouse_alloc'][row['product_id']] == vars['production'][row['product_id']]
+       for _, row in data['products'].iterrows()]
+
+  # 8. Total warehouse capacity constraint (Warehouse A)
+  - expression: |
+      sum(vars['warehouse_alloc'][row['product_id']] 
+          for _, row in data['products'].iterrows()) <= 400
+
+  # 9. Wood resource constraint
+  - expression: |
+      sum(vars['production'][row['product_id']] * row['wood_required']
+          for _, row in data['products'].iterrows()) <= 2000
+
+  # 10. Labor hours constraint
+  - expression: |
+      sum(vars['production'][row['product_id']] * row['labor_hours']
+          for _, row in data['products'].iterrows()) <= 800
+
+  # 11. Machine hours constraint
+  - expression: |
+      sum(vars['production'][row['product_id']] * row['machine_hours']
+          for _, row in data['products'].iterrows()) <= 400
+
+  # 12. Priority-based production (high priority must be produced if any production)
+  - expression: |
+      [vars['produce'][1] >= vars['produce'][row['product_id']]
+       for _, row in data['products'].iterrows()
+       if row['product_id'] != 1]
+
+  # 13. Must produce at least 2 different products
+  - expression: |
+      sum(vars['produce'][row['product_id']] 
+          for _, row in data['products'].iterrows()) >= 2
+
+  # 14. Limit shortfall to 20% of demand for high-priority products
+  - expression: |
+      [vars['shortfall'][row['product_id']] <= 
+       demand_row['forecasted_demand'] * 0.2
+       for (_, row), (_, demand_row) in zip(
+         data['products'].iterrows(),
+         data['demand_forecast'].iterrows()
+       )
+       if demand_row['priority'] == 1]
+
+# ============================================================================
+# SOLVER
+# ============================================================================
+solver:
+  type: "APOPT"
+  time_limit: 600
+  max_iter: 2000
+  mip_gap: 0.01
+
+# ============================================================================
+# OUTPUT
+# ============================================================================
+output:
+  directory: "tests/test_outputs"
+
+base_path: "."

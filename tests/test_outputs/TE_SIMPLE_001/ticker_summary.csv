@@ -1,0 +1,4 @@
+ticker,shares_sold,capital_gain,proceeds
+AAPL,125.0,4845.0,22500.0
+GOOGL,95.0,1825.0,13300.0
+MSFT,170.0,24150.0,71400.0

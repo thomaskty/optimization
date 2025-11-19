@@ -1,0 +1,48 @@
+{
+  "status": "optimal",
+  "objective_value": 29150.0,
+  "production_plan": [
+    {
+      "product_id": 1,
+      "product_name": "Chair",
+      "quantity": 133,
+      "profit_per_unit": 50.0,
+      "total_profit": 6650.0,
+      "setup_cost": 0.0,
+      "wood_used": 266.0,
+      "labor_used": 199.5,
+      "machine_used": 66.5
+    },
+    {
+      "product_id": 3,
+      "product_name": "Desk",
+      "quantity": 150,
+      "profit_per_unit": 150.0,
+      "total_profit": 22500.0,
+      "setup_cost": 0.0,
+      "wood_used": 1200.0,
+      "labor_used": 600.0,
+      "machine_used": 300.0
+    }
+  ],
+  "summary": {
+    "total_products_produced": 283,
+    "product_types": 2,
+    "total_revenue": 29150.0,
+    "total_setup_cost": 0.0,
+    "net_profit": 29150.0,
+    "wood_used": 1466.0,
+    "wood_available": 2000.0,
+    "wood_utilization": 73.3,
+    "labor_used": 799.5,
+    "labor_available": 800.0,
+    "labor_utilization": 99.9375,
+    "machine_used": 366.5,
+    "machine_available": 400.0,
+    "machine_utilization": 91.625
+  },
+  "solver_info": {
+    "solver_time": 0.04482698440551758,
+    "status": "optimal"
+  }
+}

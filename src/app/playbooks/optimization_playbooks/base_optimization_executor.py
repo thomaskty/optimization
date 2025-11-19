@@ -15,10 +15,6 @@ import json
 from app.models.optimizers.base_optimizer import BaseOptimizer
 from app.models.optimizers.milp import MILPOptimizer
 
-OPTIMIZER_TYPES = {
-    'milp': MILPOptimizer
-}
-
 
 class GenericPlaybook(ABC):
     """Generic config-driven optimization playbook."""
@@ -56,24 +52,20 @@ class GenericPlaybook(ABC):
             print("\n⏳ Loading data...")
             self.data = self._load_data()
 
-            # Step 2: Apply calculated fields
-            print("⏳ Processing calculated fields...")
-            self._apply_calculated_fields()
-
-            # Step 3: Initialize optimizer
+            # Step 2: Initialize optimizer
             if self.optimizer is None:
                 self.optimizer = self._create_optimizer()
             print(f"⏳ Optimizer: {self.optimizer.solver}")
 
-            # Step 4: Create decision variables
+            # Step 3: Create decision variables
             print("⏳ Creating decision variables...")
             self._create_variables()
 
-            # Step 5: Set objective
+            # Step 4: Set objective
             print("⏳ Setting objective function...")
             self._set_objective()
 
-            # Step 6: Add constraints
+            # Step 5: Add constraints
             print("⏳ Adding constraints...")
             self._add_constraints()
 
@@ -147,89 +139,61 @@ class GenericPlaybook(ABC):
     def _load_data(self) -> Dict[str, pd.DataFrame]:
         """Load data files specified in config."""
         data = {}
-        files = self.config.get('data', {})
-
+        data_config = self.config.get('data', {})
         base_path = Path(self.config.get('base_path', '.'))
 
-        for table_name, file_path in files.items():
+        for table_name, file_path in data_config.items():
             full_path = base_path / file_path
             data[table_name] = pd.read_csv(full_path)
             print(f"  ✓ {table_name}: {len(data[table_name])} rows")
 
         return data
 
-    def _apply_calculated_fields(self) -> None:
-        """Apply calculated fields from config."""
-        calc_fields = self.config.get('calculated_fields', {})
-
-        for table_name, fields in calc_fields.items():
-            if table_name not in self.data:
-                continue
-
-            df = self.data[table_name]
-
-            for field_def in fields:
-                for field_name, expression in field_def.items():
-                    try:
-                        if field_name.startswith('_merge'):
-                            local_vars = {
-                                'data': self.data,
-                                'pd': pd,
-                                'np': np
-                            }
-                            self.data[table_name] = eval(expression, local_vars)
-                            df = self.data[table_name]
-                        else:
-                            local_vars = {
-                                'pd': pd,
-                                'np': np,
-                                'data': self.data
-                            }
-                            for col in df.columns:
-                                local_vars[col] = df[col]
-
-                            df[field_name] = eval(expression, local_vars)
-
-                    except Exception as e:
-                        raise Exception(f"Error in {table_name}.{field_name}: {str(e)}")
-
-            self.data[table_name] = df
-
-        total_fields = sum(len(fields) for fields in calc_fields.values())
-        print(f"  ✓ {total_fields} calculated fields applied")
-
     def _create_optimizer(self) -> BaseOptimizer:
         """Create optimizer instance based on config."""
-        model_type = self.config.get('model_type', None).lower()
-        optimizer_params = self.config.get('optimizer_params', {})
+        solver_config = self.config.get('solver', {})
+        solver_type = solver_config.get('type', 'APOPT')
 
-        return OPTIMIZER_TYPES.get(model_type)(**optimizer_params)
+        optimizer_params = {
+            'solver': solver_type,
+            'remote': solver_config.get('remote', False),
+            'time_limit': solver_config.get('time_limit'),
+            'max_iter': solver_config.get('max_iter'),
+            'mip_gap': solver_config.get('mip_gap')
+        }
+
+        # Remove None values
+        optimizer_params = {k: v for k, v in optimizer_params.items() if v is not None}
+
+        return MILPOptimizer(**optimizer_params)
 
     def _create_variables(self) -> None:
         """Create decision variables from config."""
-        var_defs = self.config.get('decision_variables', [])
+        var_defs = self.config.get('variables', [])
 
         total_vars = 0
         for var_def in var_defs:
             var_name = var_def['name']
-            template = var_def['template']
-            index_from = var_def['index_from']
-            index_col = var_def['index_column']
+            index_spec = var_def['index']  # Format: "table.column"
             var_type = var_def['type']
-            bounds = var_def.get('bounds', [None, None])
+            lb = var_def.get('lb')
+            ub = var_def.get('ub')
 
-            df = self.data[index_from]
+            # Parse index specification
+            table_name, column_name = index_spec.split('.')
+            df = self.data[table_name]
+
             self.variables[var_name] = {}
 
             for idx, row in df.iterrows():
-                index_value = row[index_col]
-                full_var_name = template.format(**{index_col: index_value})
+                index_value = row[column_name]
+                full_var_name = f"{var_name}_{index_value}"
 
                 var = self.optimizer.add_variable(
                     name=full_var_name,
                     var_type=var_type,
-                    lb=bounds[0] if len(bounds) > 0 else None,
-                    ub=bounds[1] if len(bounds) > 1 else None
+                    lb=lb,
+                    ub=ub
                 )
 
                 self.variables[var_name][index_value] = var
@@ -263,110 +227,32 @@ class GenericPlaybook(ABC):
         constraints = self.config.get('constraints', [])
 
         constraint_count = 0
-        for constraint in constraints:
-            constraint_type_def = constraint['type']
+        for idx, constraint in enumerate(constraints):
+            expression = constraint['expression']
 
-            if constraint_type_def == 'for_each':
-                count = self._add_for_each_constraint(constraint)
-                constraint_count += count
-            elif constraint_type_def == 'for_each_group':
-                count = self._add_for_each_group_constraint(constraint)
-                constraint_count += count
-            elif constraint_type_def == 'single':
-                self._add_single_constraint(constraint)
+            local_vars = {
+                'data': self.data,
+                'vars': self.variables,
+                'sum': sum,
+                'min': min,
+                'max': max,
+                'pd': pd,
+                'np': np
+            }
+
+            # Evaluate expression to get GEKKO constraint object(s)
+            result = eval(expression, local_vars)
+
+            # Add constraint(s) through optimizer interface
+            if isinstance(result, list):
+                for constraint_obj in result:
+                    self.optimizer.add_constraint(constraint_obj)
+                constraint_count += len(result)
+            else:
+                self.optimizer.add_constraint(result)
                 constraint_count += 1
 
         print(f"  ✓ {constraint_count} constraints added")
-
-    def _add_for_each_constraint(self, constraint: Dict[str, Any]) -> int:
-        """Add constraint for each row in a table."""
-        iterate_over = constraint['iterate_over']
-        expression = constraint['expression']
-        constraint_type = constraint['constraint_type']
-        rhs = constraint.get('rhs', 0)
-
-        df = self.data[iterate_over]
-        count = 0
-
-        for idx, row in df.iterrows():
-            local_vars = {
-                'row': row,
-                'vars': self.variables,
-                'data': self.data
-            }
-
-            expr = eval(expression, local_vars)
-
-            self.optimizer.add_constraint(
-                name=f"{constraint['name']}_{idx}",
-                expression=expr,
-                constraint_type=constraint_type,
-                rhs=rhs
-            )
-            count += 1
-
-        return count
-
-    def _add_for_each_group_constraint(self, constraint: Dict[str, Any]) -> int:
-        """Add constraint for each group in a table."""
-        iterate_over = constraint['iterate_over']
-        group_by = constraint['group_by']
-        expression = constraint['expression']
-        constraint_type = constraint['constraint_type']
-        rhs_expression = constraint.get('rhs_expression')
-        rhs = constraint.get('rhs', 0)
-
-        df = self.data[iterate_over]
-        grouped = df.groupby(group_by)
-        count = 0
-
-        for group_name, group_data in grouped:
-            local_vars = {
-                'group_data': group_data,
-                'group_name': group_name,
-                'vars': self.variables,
-                'data': self.data
-            }
-
-            expr = eval(expression, local_vars)
-
-            if rhs_expression:
-                rhs_value = eval(rhs_expression, local_vars)
-            else:
-                rhs_value = rhs
-
-            self.optimizer.add_constraint(
-                name=f"{constraint['name']}_{group_name}",
-                expression=expr,
-                constraint_type=constraint_type,
-                rhs=rhs_value
-            )
-            count += 1
-
-        return count
-
-    def _add_single_constraint(self, constraint: Dict[str, Any]) -> None:
-        """Add a single constraint."""
-        expression = constraint['expression']
-        constraint_type = constraint['constraint_type']
-        rhs = constraint.get('rhs', 0)
-
-        local_vars = {
-            'data': self.data,
-            'vars': self.variables,
-            'sum': sum,
-            'min': min,
-            'max': max
-        }
-
-        expr = eval(expression, local_vars)
-
-        self.optimizer.add_constraint(
-            name=constraint['name'],
-            expression=expr,
-            constraint_type=constraint_type,
-            rhs=rhs
-        )
 
     def _extract_solution(self, opt_result: Dict[str, Any]) -> Dict[str, Any]:
         """Extract solution from optimization result. Override in specific playbooks."""

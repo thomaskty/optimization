@@ -1,0 +1,124 @@
+# Advanced Tax-Efficient Portfolio Liquidation
+# Complex scenario with multiple objectives and sophisticated constraints
+
+model_name: "TE_ADVANCED"
+model_id: "TE_ADV_001"
+submission_id: "SUB_TE_ADV_001"
+playbook_type: "portfolio_transition"
+
+# ============================================================================
+# DATA
+# ============================================================================
+data:
+  purchase_history: "tests/test_data/sample_data/portfolio_transition/purchase_history.csv"
+  holdings: "tests/test_data/sample_data/portfolio_transition/holdings.csv"
+
+# ============================================================================
+# DECISION VARIABLES
+# ============================================================================
+variables:
+  # Fraction of each lot to sell (0 to 1)
+  - name: "sell_fraction"
+    index: "purchase_history.lot_id"
+    type: "continuous"
+    lb: 0
+    ub: 1
+
+  # Binary indicator if lot is selected for selling
+  - name: "lot_selected"
+    index: "purchase_history.lot_id"
+    type: "binary"
+
+  # Auxiliary variable: amount of short-term gains realized
+  - name: "st_gains_realized"
+    index: "purchase_history.lot_id"
+    type: "continuous"
+    lb: 0
+
+  # Auxiliary variable: amount of long-term gains realized
+  - name: "lt_gains_realized"
+    index: "purchase_history.lot_id"
+    type: "continuous"
+    lb: 0
+
+# ============================================================================
+# OBJECTIVE
+# ============================================================================
+objective:
+  sense: "minimize"
+  description: "Minimize weighted tax liability with transaction costs and opportunity costs"
+  expression: |
+    sum(
+      vars['sell_fraction'][row['lot_id']] * (
+        row['short_term_gain'] * 0.37 +
+        row['short_term_loss'] * 0.37 +
+        row['long_term_gain'] * 0.20 +
+        row['long_term_loss'] * 0.20
+      ) +
+      vars['lot_selected'][row['lot_id']] * 50 +
+      (1 - vars['sell_fraction'][row['lot_id']]) * row['shares_purchased'] * 0.5
+      for _, row in data['purchase_history'].iterrows()
+    )
+
+# ============================================================================
+# CONSTRAINTS
+# ============================================================================
+constraints:
+  # 1. Link binary to continuous variable (if selling any fraction, lot_selected = 1)
+  - expression: |
+      [vars['sell_fraction'][row['lot_id']] <= vars['lot_selected'][row['lot_id']]
+       for _, row in data['purchase_history'].iterrows()]
+
+  # 2. Track short-term gains realized (for reporting/limits)
+  - expression: |
+      [vars['st_gains_realized'][row['lot_id']] == 
+       vars['sell_fraction'][row['lot_id']] * (row['short_term_gain'] + row['short_term_loss'])
+       for _, row in data['purchase_history'].iterrows()]
+
+  # 3. Track long-term gains realized (for reporting/limits)
+  - expression: |
+      [vars['lt_gains_realized'][row['lot_id']] == 
+       vars['sell_fraction'][row['lot_id']] * (row['long_term_gain'] + row['long_term_loss'])
+       for _, row in data['purchase_history'].iterrows()]
+
+  # 4. Partial liquidation: AAPL (sell between 80-95%)
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'AAPL'
+      ) >= 100
+
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'AAPL'
+      ) <= 118.75
+
+  # 5. Partial liquidation: MSFT (sell between 5-15%)
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'MSFT'
+      ) >= 8.5
+
+
+
+# ============================================================================
+# SOLVER
+# ============================================================================
+solver:
+  type: "APOPT"
+  time_limit: 600
+  max_iter: 2000
+  mip_gap: 0.01
+
+# ============================================================================
+# OUTPUT
+# ============================================================================
+output:
+  directory: "tests/test_outputs"
+
+base_path: "."

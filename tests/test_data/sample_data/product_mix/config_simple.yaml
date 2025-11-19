@@ -1,0 +1,78 @@
+# Simple Product Mix Optimization
+# Basic: maximize profit with resource constraints only
+
+model_name: "PRODUCT_MIX_SIMPLE"
+model_id: "PM_SIMPLE_001"
+playbook_type: "product_mix"
+
+# ============================================================================
+# DATA
+# ============================================================================
+data:
+  products: "tests/test_data/sample_data/product_mix/products.csv"
+  resources: "tests/test_data/sample_data/product_mix/resources.csv"
+
+# ============================================================================
+# DECISION VARIABLES
+# ============================================================================
+variables:
+  - name: "production"
+    index: "products.product_id"
+    type: "integer"
+    lb: 0
+
+# ============================================================================
+# OBJECTIVE
+# ============================================================================
+objective:
+  sense: "maximize"
+  expression: |
+    sum(
+      vars['production'][row['product_id']] * row['profit_per_unit']
+      for _, row in data['products'].iterrows()
+    )
+
+# ============================================================================
+# CONSTRAINTS
+# ============================================================================
+constraints:
+  # Wood resource limit
+  - expression: |
+      sum(
+        vars['production'][row['product_id']] * row['wood_required']
+        for _, row in data['products'].iterrows()
+      ) <= 2000
+
+  # Labor hours limit
+  - expression: |
+      sum(
+        vars['production'][row['product_id']] * row['labor_hours']
+        for _, row in data['products'].iterrows()
+      ) <= 800
+
+  # Machine hours limit
+  - expression: |
+      sum(
+        vars['production'][row['product_id']] * row['machine_hours']
+        for _, row in data['products'].iterrows()
+      ) <= 400
+
+  # Storage capacity per product
+  - expression: |
+      [vars['production'][row['product_id']] <= row['max_storage']
+       for _, row in data['products'].iterrows()]
+
+# ============================================================================
+# SOLVER
+# ============================================================================
+solver:
+  type: "APOPT"
+  time_limit: 300
+
+# ============================================================================
+# OUTPUT
+# ============================================================================
+output:
+  directory: "tests/test_outputs"
+
+base_path: "."

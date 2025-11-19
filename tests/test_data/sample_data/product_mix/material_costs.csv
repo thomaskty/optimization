@@ -1,0 +1,4 @@
+product_id,material_cost_per_unit,labor_cost_per_unit,overhead_per_unit
+1,8,5,2
+2,20,12,5
+3,30,15,7

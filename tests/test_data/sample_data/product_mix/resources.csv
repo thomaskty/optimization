@@ -1,0 +1,4 @@
+resource_name,available_units,cost_per_unit
+Wood,2000,5
+Labor,800,15
+Machine,400,20

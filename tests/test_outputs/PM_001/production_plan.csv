@@ -1,0 +1,2 @@
+product_id,product_name,quantity,profit_per_unit,total_profit,setup_cost,wood_used,labor_used,machine_used
+3,Desk,200,150.0,30000.0,0.0,1600.0,800.0,400.0

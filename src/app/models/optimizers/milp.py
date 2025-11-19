@@ -34,7 +34,19 @@ class MILPOptimizer(BaseOptimizer):
     def add_variable(self, name: str, var_type: str = 'continuous',
                      lb: Optional[float] = None, ub: Optional[float] = None,
                      initial: Optional[float] = None) -> Any:
-        """Add variable. var_type: 'continuous', 'binary', 'integer'"""
+        """
+        Add a decision variable to the model.
+
+        Args:
+            name: Variable name
+            var_type: 'continuous', 'binary', or 'integer'
+            lb: Lower bound
+            ub: Upper bound
+            initial: Initial value
+
+        Returns:
+            GEKKO variable object
+        """
         init = initial if initial is not None else 0
 
         if var_type == 'binary':
@@ -47,40 +59,53 @@ class MILPOptimizer(BaseOptimizer):
         self._vars[name] = var
         return var
 
-    def add_variables(self, base_name: str, size: int, var_type: str = 'continuous',
-                      lb: Optional[float] = None, ub: Optional[float] = None) -> List[Any]:
-        """Add array of variables."""
-        return [self.add_variable(f"{base_name}_{i}", var_type, lb, ub) for i in range(size)]
+    def add_constraint(self, constraint_obj: Any) -> None:
+        """
+        Add a constraint to the model.
 
-    def add_constraint(self, name: str, expression: Any,
-                       constraint_type: str = 'eq', rhs: float = 0.0) -> None:
-        """Add constraint. constraint_type: 'eq', 'leq', 'geq'"""
-        if constraint_type == 'eq':
-            self._model.Equation(expression == rhs)
-        elif constraint_type == 'leq':
-            self._model.Equation(expression <= rhs)
-        elif constraint_type == 'geq':
-            self._model.Equation(expression >= rhs)
-        else:
-            raise ValueError(f"Invalid constraint type: {constraint_type}")
+        Args:
+            constraint_obj: GEKKO constraint object (e.g., result of x + y <= 10)
+        """
+        self._model.Equation(constraint_obj)
 
     def set_objective(self, expression: Any, sense: str = 'minimize') -> None:
-        """Set objective. sense: 'minimize' or 'maximize'"""
+        """
+        Set the objective function.
+
+        Args:
+            expression: GEKKO expression to optimize
+            sense: 'minimize' or 'maximize'
+        """
         self.optimization_sense = sense.lower()
         if self.optimization_sense == 'minimize':
             self._model.Minimize(expression)
         elif self.optimization_sense == 'maximize':
             self._model.Maximize(expression)
         else:
-            raise ValueError(f"Invalid sense: {sense}")
+            raise ValueError(f"Invalid sense: {sense}. Must be 'minimize' or 'maximize'")
         self.objective = expression
 
     def solve(self, disp: bool = False, **kwargs) -> Dict[str, Any]:
-        """Solve MILP. Returns dict with status, objective_value, variables, solver_time."""
-        if not self._vars:
-            return {'status': 'error', 'message': 'No variables defined',
-                    'objective_value': None, 'variables': None, 'solver_time': 0.0}
+        """
+        Solve the optimization problem.
 
+        Args:
+            disp: Display solver output
+            **kwargs: Additional solver options
+
+        Returns:
+            Dictionary with keys: status, objective_value, variables, solver_time, message
+        """
+        if not self._vars:
+            return {
+                'status': 'error',
+                'message': 'No variables defined',
+                'objective_value': None,
+                'variables': None,
+                'solver_time': 0.0
+            }
+
+        # Set additional solver options
         for key, value in kwargs.items():
             try:
                 setattr(self._model.options, key.upper(), value)
@@ -92,13 +117,23 @@ class MILPOptimizer(BaseOptimizer):
             self._model.solve(disp=disp)
             solve_time = time.time() - start
 
+            # Determine solution status
             status = 'optimal' if self._model.options.APPSTATUS == 1 else \
                 'infeasible' if self._model.options.APPSTATUS == 0 else 'feasible'
 
-            variables = {name: (var.value[0] if hasattr(var.value, '__iter__') else var.value)
-                         for name, var in self._vars.items()} if status == 'optimal' else None
+            # Extract variable values
+            variables = {
+                name: (var.value[0] if hasattr(var.value, '__iter__') else var.value)
+                for name, var in self._vars.items()
+            } if status == 'optimal' else None
 
-            objective = self._model.options.OBJFCNVAL if status == 'optimal' else None
+            # Get objective value (GEKKO returns negative for maximization)
+            raw_objective = self._model.options.OBJFCNVAL if status == 'optimal' else None
+
+            if raw_objective is not None and self.optimization_sense == 'maximize':
+                objective = -raw_objective
+            else:
+                objective = raw_objective
 
             self.result = {
                 'status': status,
@@ -121,7 +156,15 @@ class MILPOptimizer(BaseOptimizer):
         return self.result
 
     def get_variable_value(self, var_name: str) -> Optional[float]:
-        """Get optimized variable value."""
+        """
+        Get the optimized value of a variable.
+
+        Args:
+            var_name: Name of the variable
+
+        Returns:
+            Variable value or None if not found
+        """
         if var_name in self._vars:
             var = self._vars[var_name]
             value = var.value[0] if hasattr(var.value, '__iter__') else var.value
@@ -129,5 +172,13 @@ class MILPOptimizer(BaseOptimizer):
         return None
 
     def get_values(self, var_names: List[str]) -> np.ndarray:
-        """Get multiple variable values as array."""
+        """
+        Get multiple variable values as array.
+
+        Args:
+            var_names: List of variable names
+
+        Returns:
+            Numpy array of variable values
+        """
         return np.array([self.get_variable_value(name) for name in var_names])

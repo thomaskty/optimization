@@ -1,0 +1,82 @@
+# Simple Tax-Efficient Portfolio Liquidation
+# Minimal constraints - just basic liquidation with tax optimization
+
+model_name: "TE_SIMPLE"
+model_id: "TE_SIMPLE_001"
+playbook_type: "portfolio_transition"
+
+# ============================================================================
+# DATA
+# ============================================================================
+data:
+  purchase_history: "tests/test_data/sample_data/portfolio_transition/purchase_history.csv"
+  holdings: "tests/test_data/sample_data/portfolio_transition/holdings.csv"
+
+# ============================================================================
+# DECISION VARIABLES
+# ============================================================================
+variables:
+  - name: "sell_fraction"
+    index: "purchase_history.lot_id"
+    type: "continuous"
+    lb: 0
+    ub: 1
+
+# ============================================================================
+# OBJECTIVE
+# ============================================================================
+objective:
+  sense: "minimize"
+  expression: |
+    sum(
+      vars['sell_fraction'][row['lot_id']] * (
+        row['short_term_gain'] * 0.37 +
+        row['short_term_loss'] * 0.37 +
+        row['long_term_gain'] * 0.20 +
+        row['long_term_loss'] * 0.20
+      )
+      for _, row in data['purchase_history'].iterrows()
+    )
+
+# ============================================================================
+# CONSTRAINTS
+# ============================================================================
+constraints:
+  # Must sell all AAPL shares (100%)
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'AAPL'
+      ) == 125
+
+  # Must sell all MSFT shares (100%)
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'MSFT'
+      ) == 170
+
+  # Must sell all GOOGL shares (100%)
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'GOOGL'
+      ) == 95
+
+# ============================================================================
+# SOLVER
+# ============================================================================
+solver:
+  type: "APOPT"
+  time_limit: 300
+
+# ============================================================================
+# OUTPUT
+# ============================================================================
+output:
+  directory: "tests/test_outputs"
+
+base_path: "."

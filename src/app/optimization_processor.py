@@ -7,13 +7,14 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any
 
-from app.playbooks.optimization_playbooks.milp_executor import TaxEfficientPortfolioTransition
+from app.playbooks.optimization_playbooks.portfolio_transition_executor import TaxEfficientPortfolioTransition
 from app.playbooks.optimization_playbooks.base_optimization_executor import GenericPlaybook
-
+from app.playbooks.optimization_playbooks.product_mix_executor import ProductMixPlaybook
 
 PLAYBOOK_TYPES = {
     'generic_optimization': GenericPlaybook,
-    'tax_efficient_portfolio_transition': TaxEfficientPortfolioTransition
+    'portfolio_transition': TaxEfficientPortfolioTransition,
+    'product_mix':ProductMixPlaybook
 }
 
 def load_config(config_path: str) -> Dict[str, Any]:

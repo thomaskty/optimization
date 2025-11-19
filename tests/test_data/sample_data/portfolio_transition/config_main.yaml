@@ -1,0 +1,108 @@
+# Tax-Efficient Portfolio Transition - Optimization Model Configuration
+# File: tests/test_data/sample_data/portfolio_transition/config_generic.yaml
+
+model_name: "TE_GENERIC"
+model_id: "TE_001"
+submission_id: "SUB_001"
+playbook_type: "portfolio_transition"
+
+# ============================================================================
+# DATA SOURCES
+# ============================================================================
+data:
+  purchase_history: "tests/test_data/sample_data/portfolio_transition/purchase_history.csv"
+  holdings: "tests/test_data/sample_data/portfolio_transition/holdings.csv"
+
+# ============================================================================
+# DECISION VARIABLES
+# ============================================================================
+variables:
+  - name: "sell_fraction"
+    index: "purchase_history.lot_id"
+    type: "continuous"
+    lb: 0
+    ub: 1
+
+  - name: "lot_selected"
+    index: "purchase_history.lot_id"
+    type: "binary"
+
+# ============================================================================
+# OBJECTIVE
+# ============================================================================
+objective:
+  sense: "minimize"
+  expression: |
+    sum(
+      vars['sell_fraction'][row['lot_id']] * (
+        row['short_term_gain'] * 0.37 +
+        row['short_term_loss'] * 0.37 +
+        row['long_term_gain'] * 0.20 +
+        row['long_term_loss'] * 0.20
+      )
+      for _, row in data['purchase_history'].iterrows()
+    )
+
+# ============================================================================
+# CONSTRAINTS
+# ============================================================================
+constraints:
+  # Link binary to continuous variable (creates 18 constraints)
+  - expression: |
+      [vars['sell_fraction'][row['lot_id']] - vars['lot_selected'][row['lot_id']] <= 0
+       for _, row in data['purchase_history'].iterrows()]
+
+  # Share balance for AAPL (90% = 112.5 shares)
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'AAPL'
+      ) == 112.5
+
+  # Share balance for MSFT (10% = 17 shares)
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['shares_purchased']
+        for _, row in data['purchase_history'].iterrows()
+        if row['ticker'] == 'MSFT'
+      ) == 17.0
+
+
+  # Maximum total capital gains
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * row['total_capital_gain']
+        for _, row in data['purchase_history'].iterrows()
+      ) <= 20000
+
+  # Maximum short-term capital gains
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * (row['short_term_gain'] + row['short_term_loss'])
+        for _, row in data['purchase_history'].iterrows()
+      ) <= 20000
+
+  # Maximum long-term capital gains
+  - expression: |
+      sum(
+        vars['sell_fraction'][row['lot_id']] * (row['long_term_gain'] + row['long_term_loss'])
+        for _, row in data['purchase_history'].iterrows()
+      ) <= 40000
+
+# ============================================================================
+# SOLVER
+# ============================================================================
+solver:
+  type: "APOPT"
+  time_limit: 600
+  max_iter: 1000
+  mip_gap: 0.01
+
+# ============================================================================
+# OUTPUT
+# ============================================================================
+output:
+  directory: "tests/test_outputs"
+
+base_path: "."

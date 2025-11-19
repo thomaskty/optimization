@@ -1,0 +1,4 @@
+product_id,product_name,forecasted_demand,priority,penalty_per_unit_short
+1,Chair,300,2,5
+2,Table,150,1,15
+3,Desk,100,3,10
